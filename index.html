@@ -1,893 +1,1342 @@
-<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <title>DM 백업</title>
-    <style id="chat-styles">
-    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style id="static-styles">
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-page:       #f0f2f5;
+            --bg-chat:       #ffffff;
+            --bg-panel:      #fafafa;
+            --bg-surface:    #f5f6f8;
+            --bg-input:      #f0f1f4;
+            --bg-hover:      #e8eaf0;
+            --border:        rgba(0,0,0,0.07);
+            --border-md:     rgba(0,0,0,0.11);
+            --border-focus:  rgba(99,102,241,0.45);
+            --text-1:        #111827;
+            --text-2:        #6b7280;
+            --text-3:        #9ca3af;
+            --accent:        #6366f1;
+            --accent-lite:   rgba(99,102,241,0.1);
+            --accent-hover:  #4f46e5;
+            --green:         #059669;
+            --green-lite:    rgba(5,150,105,0.1);
+            --orange:        #d97706;
+            --orange-lite:   rgba(217,119,6,0.1);
+            --red:           #dc2626;
+            --red-lite:      rgba(220,38,38,0.08);
+            --r-sm:  8px;
+            --r-md:  12px;
+            --r-lg:  18px;
+            --r-xl:  24px;
+            --font:  'Noto Sans KR', 'Malgun Gothic', sans-serif;
+            --ease:  0.17s cubic-bezier(0.4,0,0.2,1);
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        html, body { height: 100%; }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg-page);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        /* ═══ 최상위 분할 레이아웃 ═══ */
+        .workspace {
+            display: flex;
+            width: 100%;
+            max-width: 1060px;
+            height: 90vh;
+            min-height: 580px;
+            border-radius: var(--r-xl);
+            overflow: hidden;
+            border: 1px solid var(--border-md);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* ═══ 왼쪽: 채팅 패널 ═══ */
+        .chat-pane {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-chat);
+            border-right: 1px solid var(--border);
+        }
+
+        .chat-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            background: var(--bg-chat);
+        }
+
+        .chat-header-icon {
+            width: 30px; height: 30px;
+            border-radius: 9px;
+            background: var(--accent-lite);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .chat-header-icon svg { width: 14px; height: 14px; }
+        .chat-header-title { font-size: 14px; font-weight: 600; color: var(--text-1); letter-spacing: -0.2px; }
+        .chat-header-sub   { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+        /* 메시지 영역 */
+        .messages {
+            flex: 1;
+            padding: 16px 14px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            gap: 2px;
+            background: var(--bg-chat);
+        }
+        .messages::-webkit-scrollbar { width: 4px; }
+        .messages::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }
+
+        /* 말풍선 */
+        .message {
+            max-width: 72%;
+            padding: 9px 13px;
+            border-radius: 16px;
+            font-size: 13.5px;
+            line-height: 1.55;
+            word-break: break-word;
+            white-space: pre-wrap;
+            animation: popIn 0.16s cubic-bezier(0.34,1.4,0.64,1) both;
+        }
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.9) translateY(5px); }
+            to   { opacity: 1; transform: scale(1)   translateY(0); }
+        }
+        .message-header { font-size: 10px; font-weight: 600; letter-spacing: 0.2px; margin-top: 2px; margin-bottom: 3px; }
+        .system-message { text-align: center; color: var(--text-3); font-size: 11px; margin: 6px 0; }
+
+        /* 빈 상태 */
+        .empty-state {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 8px; color: var(--text-3);
+            pointer-events: none; user-select: none;
+        }
+        .empty-state p { font-size: 12px; }
+
+        /* 채팅 입력 바 */
+        .chat-input-bar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 14px;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0; background: var(--bg-chat);
+        }
+        #message-input {
+            flex: 1;
+            background: var(--bg-input);
+            border: 1px solid var(--border-md);
+            border-radius: 999px;
+            color: var(--text-1);
+            font-family: var(--font); font-size: 13px;
+            padding: 8px 15px; outline: none;
+            transition: border-color var(--ease);
+        }
+        #message-input::placeholder { color: var(--text-3); }
+        #message-input:focus { border-color: var(--border-focus); }
+        #send-btn {
+            width: 34px; height: 34px; border-radius: 50%;
+            border: none; background: var(--accent); color: #fff;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: background var(--ease), transform 0.1s;
+            box-shadow: 0 2px 6px rgba(99,102,241,0.35);
+        }
+        #send-btn:hover { background: var(--accent-hover); }
+        #send-btn:active { transform: scale(0.93); }
+        #send-btn svg { width: 14px; height: 14px; }
+        #img-upload-btn {
+            width: 34px; height: 34px; border-radius: 50%;
+            border: none; background: var(--bg-surface); color: var(--text-2);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: background var(--ease), color var(--ease);
+            border: 1px solid var(--border-md);
+        }
+        #img-upload-btn:hover { background: var(--bg-hover); color: var(--text-1); }
+        #img-upload-btn:active { transform: scale(0.93); }
+        #img-upload-btn svg { width: 15px; height: 15px; }
+        .msg-img-wrap { line-height: 0; }
+        .msg-image {
+            max-width: 220px; max-height: 300px;
+            border-radius: 10px; display: block;
+            cursor: pointer;
+        }
+        .message:has(.msg-image) { padding: 5px; }
+        /* 이미지 라이트박스 */
+        #img-lightbox {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.82); z-index: 9997;
+            align-items: center; justify-content: center;
+            cursor: zoom-out;
+        }
+        #img-lightbox.show { display: flex; }
+        #img-lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 10px; }
+
+        /* ═══ 오른쪽: 컨트롤 패널 ═══ */
+        .ctrl-pane {
+            width: 288px; flex-shrink: 0;
+            display: flex; flex-direction: column;
+            background: var(--bg-panel);
+            overflow-y: auto;
+        }
+        .ctrl-pane::-webkit-scrollbar { width: 3px; }
+        .ctrl-pane::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 4px; }
+
+        .panel-header {
+            padding: 14px 16px 12px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0; background: var(--bg-panel);
+        }
+        .panel-title { font-size: 12px; font-weight: 600; color: var(--text-2); letter-spacing: 0.5px; text-transform: uppercase; }
+
+        .ctrl-section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+        .section-label { font-size: 10px; font-weight: 600; color: var(--text-3); letter-spacing: 0.7px; text-transform: uppercase; margin-bottom: 10px; }
+
+        .ctrl-row { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+        .ctrl-row:last-child { margin-bottom: 0; }
+
+        .field {
+            background: var(--bg-input);
+            border: 1px solid var(--border-md);
+            border-radius: var(--r-sm);
+            color: var(--text-1);
+            font-family: var(--font); font-size: 12px;
+            padding: 7px 10px; outline: none; width: 100%;
+            transition: border-color var(--ease);
+        }
+        .field:focus { border-color: var(--border-focus); }
+        select.field { cursor: pointer; }
+
+        /* 로그 종류 탭 */
+        .log-type-tabs { display: flex; gap: 5px; flex-wrap: wrap; }
+        .log-tab {
+            flex: 1; min-width: 0;
+            padding: 7px 4px;
+            border: 1px solid var(--border-md);
+            border-radius: var(--r-sm);
+            background: var(--bg-input);
+            color: var(--text-2);
+            font-family: var(--font); font-size: 11px; font-weight: 500;
+            cursor: pointer; text-align: center; white-space: nowrap;
+            transition: all var(--ease);
+        }
+        .log-tab:hover { background: var(--bg-hover); color: var(--text-1); }
+        .log-tab.active { background: var(--accent-lite); border-color: rgba(99,102,241,0.3); color: var(--accent); font-weight: 600; }
+
+        .log-hint {
+            margin-top: 8px; padding: 8px 10px;
+            background: var(--bg-surface);
+            border-radius: var(--r-sm); border: 1px solid var(--border);
+            font-size: 10.5px; color: var(--text-2); line-height: 1.65;
+        }
+        .log-hint b { color: var(--text-1); font-weight: 600; }
+
+        /* 버튼 */
+        .btn {
+            border: none; border-radius: var(--r-sm);
+            font-family: var(--font); font-size: 11px; font-weight: 500;
+            cursor: pointer; padding: 7px 12px; white-space: nowrap;
+            transition: background var(--ease), transform 0.1s;
+            flex-shrink: 0;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-accent { background: var(--accent-lite); color: var(--accent); }
+        .btn-accent:hover { background: rgba(99,102,241,0.18); }
+        .btn-muted { background: var(--bg-surface); color: var(--text-2); border: 1px solid var(--border-md); }
+        .btn-muted:hover { background: var(--bg-hover); }
+        .btn-green  { background: var(--green-lite);  color: var(--green);  }
+        .btn-green:hover  { background: rgba(5,150,105,0.18); }
+        .btn-orange { background: var(--orange-lite); color: var(--orange); }
+        .btn-orange:hover { background: rgba(217,119,6,0.18); }
+        .btn-red    { background: var(--red-lite);    color: var(--red);    }
+        .btn-red:hover    { background: rgba(220,38,38,0.14); }
+        .btn-full { width: 100%; padding: 9px; font-size: 12px; border-radius: var(--r-md); text-align: center; }
+
+        .export-group { display: flex; flex-direction: column; gap: 7px; }
+
+        /* 색상 스와치 */
+        .color-row { display: flex; align-items: center; gap: 10px; }
+        .swatch-item { display: flex; align-items: center; gap: 6px; flex: 1; }
+        .swatch-label { font-size: 11px; color: var(--text-3); white-space: nowrap; }
+        input[type="color"] {
+            -webkit-appearance: none; appearance: none;
+            width: 26px; height: 26px;
+            border: 1px solid var(--border-md); border-radius: 6px;
+            background: none; cursor: pointer; padding: 1px; flex-shrink: 0;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; border-radius: 4px; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
+
+        /* 발화자 칩 */
+        .speaker-chip-list { display: flex; flex-direction: column; gap: 5px; }
+        .speaker-chip {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 10px;
+            background: var(--bg-input);
+            border-radius: var(--r-sm);
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: border-color var(--ease), background var(--ease);
+        }
+        .speaker-chip:hover { background: var(--bg-hover); }
+        .speaker-chip.active { border-color: rgba(99,102,241,0.35); background: rgba(99,102,241,0.07); }
+        .chip-dot  { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+        .chip-name { font-size: 12px; color: var(--text-1); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .chip-tag  { font-size: 9px; color: var(--text-3); background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 99px; }
+        /* [수정 7] 발화자 삭제 버튼 */
+        .chip-del {
+            width: 16px; height: 16px;
+            border: none; border-radius: 50%;
+            background: transparent; color: var(--text-3);
+            font-size: 13px; line-height: 1; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; padding: 0;
+            transition: background var(--ease), color var(--ease);
+        }
+        .chip-del:hover { background: var(--red-lite); color: var(--red); }
+
+        /* PNG 변환 오버레이 */
+        #png-loading {
+            display: none; position: fixed; inset: 0;
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(4px);
+            align-items: center; justify-content: center;
+            z-index: 9998; flex-direction: column; gap: 12px;
+        }
+        #png-loading.show { display: flex; }
+        .spinner {
+            width: 32px; height: 32px;
+            border: 3px solid rgba(99,102,241,0.2);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #png-loading p { font-size: 13px; color: var(--text-2); font-family: var(--font); }
+
+        /* 토스트 */
+        #toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background: rgba(17,24,39,0.92);
+            backdrop-filter: blur(8px);
+            color: #fff; border-radius: 999px;
+            padding: 8px 18px; font-size: 12px; font-family: var(--font);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 9999; white-space: nowrap;
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* 메시지 인라인 편집 */
+        .message { position: relative; overflow: visible; }
+        .msg-actions {
+            position: absolute;
+            top: -26px;
+            display: none;
+            gap: 2px;
+            background: var(--bg-chat);
+            border: 1px solid var(--border-md);
+            border-radius: 7px;
+            padding: 2px 4px;
+            box-shadow: var(--shadow-sm);
+            z-index: 10;
+        }
+        .message:hover .msg-actions { display: flex; }
+        .speaker-0 .msg-actions { right: 0; }
+        .message:not(.speaker-0) .msg-actions { left: 0; }
+        .msg-btn {
+            width: 22px; height: 22px;
+            border: none; border-radius: 5px;
+            background: transparent; color: var(--text-3);
+            cursor: pointer; padding: 0; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            transition: background var(--ease), color var(--ease);
+        }
+        .msg-btn:hover { background: var(--bg-hover); color: var(--text-1); }
+        .msg-del-btn:hover { background: var(--red-lite); color: var(--red); }
+        .msg-text[contenteditable="true"] {
+            outline: 2px solid var(--border-focus);
+            outline-offset: 2px;
+            border-radius: 4px;
+            cursor: text;
+            white-space: pre-wrap;
+        }
+        .message.editing { z-index: 5; }
+
+        @media (max-width: 640px) {
+            .ctrl-pane { display: none; }
+            .workspace { max-width: 100%; border-radius: var(--r-lg); }
+        }
     </style>
+
+    <style id="dynamic-styles"></style>
 </head>
 <body>
-    <div class="chat-container">
-        <div class="messages" id="messages-container" style="height: 500px; overflow-y: auto"></div>
 
-        <div class="control-area">
-            
-            <div class="setting-area">
-                <div class="name-edit-group">
-                    <div class="name-input-group">
-                        <label for="speaker-select" class="label">발화자 선택:</label>
-                        <select id="speaker-select" onchange="loadSpeakerSettings()"></select>
-                        <button id="add-speaker-btn" onclick="addSpeaker()">발화자 추가</button>
-                    </div>
-                    
-                    <div class="name-input-group">
-                        <label for="new-name-input" class="label">새 이름 입력:</label>
-                        <input type="text" id="new-name-input" placeholder="이름을 입력하세요">
-                        <button id="change-name-btn" onclick="changeSpeakerName()">이름 변경</button>
-                    </div>
-                </div>
-                
-                <button id="copy-html-btn" onclick="copyMessagesAsHtml()">HTML 복사</button>
+<div class="workspace">
+
+    <!-- ══════════ 왼쪽: 채팅 ══════════ -->
+    <div class="chat-pane">
+        <div class="chat-header">
+            <div class="chat-header-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
             </div>
-            
-            <div class="color-selection-area" style="display: flex; gap: 20px; margin-bottom: 10px; flex-wrap: wrap;">
-                <div>
-                    <label for="bubble-color-input" class="label">말풍선 색상:</label>
-                    <input type="color" id="bubble-color-input" onchange="updateSpeakerColor('bubble')">
-                </div>
-                <div id="name-color-group">
-                    <label for="name-color-input" class="label">이름 색상:</label>
-                    <input type="color" id="name-color-input" onchange="updateSpeakerColor('name')">
-                </div>
+            <div>
+                <div class="chat-header-title">DM 백업</div>
+                <div class="chat-header-sub">메시지를 입력하거나 로그를 붙여넣으세요</div>
             </div>
-            <div class="input-area">
-                <input type="text" id="message-input" placeholder="메시지 입력 또는 카카오톡 로그 붙여넣기" onkeypress="handleKeyPress(event)">
-                <button id="send-btn" onclick="sendMessage()">보내기</button>
+        </div>
+
+        <div class="messages" id="messages-container">
+            <div class="empty-state" id="empty-state">
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                <p>아직 메시지가 없습니다</p>
             </div>
+        </div>
+
+        <div class="chat-input-bar">
+            <input type="text" id="message-input" placeholder="메시지를 입력하세요…">
+            <input type="file" id="img-upload-input" accept="image/*" style="display:none">
+            <button id="img-upload-btn" title="이미지 첨부">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                </svg>
+            </button>
+            <button id="send-btn" title="전송">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"/>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+            </button>
         </div>
     </div>
 
-    <script>
-        // 초기 발화자 설정
-        let speakers = [
-            { id: 0, name: "나", color: "#0084ff", align: "flex-end", name_color: "none" }, // '나'는 이름 색상 무시
-            { id: 1, name: "상대방 A", color: "#e4e6eb", align: "flex-start", name_color: "#536471" }
-        ];
-        let nextSpeakerId = 2; // 다음에 추가될 발화자의 ID
+    <!-- ══════════ 오른쪽: 컨트롤 패널 ══════════ -->
+    <div class="ctrl-pane">
+        <div class="panel-header">
+            <div class="panel-title">컨트롤 패널</div>
+        </div>
 
-        const messagesContainer = document.getElementById('messages-container');
-        const speakerSelect = document.getElementById('speaker-select');
-        const newNameInput = document.getElementById('new-name-input');
-        const bubbleColorInput = document.getElementById('bubble-color-input');
-        const nameColorInput = document.getElementById('name-color-input');
-        const nameColorGroup = document.getElementById('name-color-group');
-        const input = document.getElementById('message-input');
-        const styleTag = document.getElementById('chat-styles');
+        <!-- ① 로그 종류 -->
+        <div class="ctrl-section">
+            <div class="section-label">로그 종류</div>
+            <div class="log-type-tabs">
+                <button class="log-tab active" data-type="kakao">카카오톡</button>
+                <button class="log-tab" data-type="twitter">트위터 DM</button>
+                <button class="log-tab" data-type="band">밴드</button>
+            </div>
+            <div class="log-hint" id="log-hint"></div>
+        </div>
 
-        // 발화자별 기본 색상
-        const additionalColors = [
-            { bg: "#ffe0b2", name: "#dc3545" },
-            { bg: "#b3e5fc", name: "#00bcd4" },
-            { bg: "#c8e6c9", name: "#4caf50" },
-            { bg: "#ffccbc", name: "#ff5722" }
-        ];
+        <!-- ② 발화자 선택 -->
+        <div class="ctrl-section">
+            <div class="section-label">발화자 선택</div>
+            <div class="ctrl-row">
+                <select id="speaker-select" class="field"></select>
+            </div>
+            <div class="speaker-chip-list" id="speaker-chip-list"></div>
+        </div>
 
-        // 기본 CSS와 동적 CSS를 결합하여 <style> 태그를 업데이트합니다.
-        function updateStyles() {
-            let dynamicStyles = ``;
-            
-            // 발화자별 스타일
-            for (const s of speakers) {
-                if (s.id === 0) {
-                    // '나' 스타일 
-                    dynamicStyles += `
-                        .speaker-0 {
-                            align-self: ${s.align};
-                            background-color: ${s.color};
-                            color: #ffffff;
-                        }
-                        .speaker-0.is-last-message {
-                            border-bottom-right-radius: 2px;
-                            margin-bottom: 5px; 
-                        }
-                    `;
-                } else {
-                    // 상대방 스타일
-                    dynamicStyles += `
-                        .speaker-${s.id} {
-                            align-self: ${s.align};
-                            background-color: ${s.color};
-                            color: #050505;
-                        }
+        <!-- ③ 이름 변경 -->
+        <div class="ctrl-section">
+            <div class="section-label">이름 변경</div>
+            <div class="ctrl-row">
+                <input type="text" id="new-name-input" class="field" placeholder="새 이름 입력">
+            </div>
+            <div class="ctrl-row" style="gap:6px">
+                <button id="change-name-btn" class="btn btn-muted" style="flex:1">이름 변경</button>
+                <button id="add-speaker-btn" class="btn btn-accent" style="flex:1">+ 추가</button>
+            </div>
+        </div>
 
-                        /* 말풍선 밖의 헤더 스타일 (아래로 이동) */
-                        .header-for-speaker-${s.id} {
-                            align-self: ${s.align};
-                            color: ${s.name_color};
-                            margin-left: 5px; /* 말풍선과 정렬 */
-                            margin-top: 2px; /* 말풍선과 이름 사이 간격 */
-                            margin-bottom: 5px; /* 이름과 다음 말풍선 블록 사이 간격 */
-                        }
+        <!-- ④ 색상 설정 -->
+        <div class="ctrl-section">
+            <div class="section-label">색상 설정</div>
+            <div class="color-row">
+                <div class="swatch-item">
+                    <input type="color" id="bubble-color-input" title="말풍선 색상">
+                    <span class="swatch-label">말풍선</span>
+                </div>
+                <div class="swatch-item" id="name-color-group">
+                    <input type="color" id="name-color-input" title="이름 색상">
+                    <span class="swatch-label">이름</span>
+                </div>
+            </div>
+        </div>
 
-                        .speaker-${s.id}.is-last-message {
-                            border-bottom-left-radius: 2px;
-                            /* [수정] 이름표가 여백을 대신 가지므로, 마지막 말풍선은 여백 0 */
-                            margin-bottom: 0px; 
-                        }
-                    `;
-                }
-            }
+        <!-- ④-2 백업 불러오기 -->
+        <div class="ctrl-section">
+            <div class="section-label">백업 불러오기</div>
+            <input type="file" id="load-backup-input" accept=".html" style="display:none">
+            <button id="load-backup-btn" class="btn btn-accent btn-full">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                HTML 파일 불러오기
+            </button>
+            <div style="margin-top:7px;font-size:10.5px;color:var(--text-3);line-height:1.6">
+                저장된 백업 HTML 파일을 열어 채팅 내용을 미리볼 수 있습니다.
+            </div>
+        </div>
 
-            // 공통/제어 CSS (정적 스타일)
-            const staticStyles = `
-                body {
-                   font-family: 'Malgun Gothic', Arial, sans-serif;
-                   background-color: #fff;
-                   display: flex;
-                   justify-content: center;
-                   align-items: center; 
-                   min-height: 100vh;
-                   padding: 20px; 
-                   margin: 0; 
-                   box-sizing: border-box; 
-                }
+        <!-- ⑤ 내보내기 -->
+        <div class="ctrl-section">
+            <div class="section-label">내보내기</div>
+            <div class="export-group">
+                <button id="copy-html-btn" class="btn btn-green btn-full">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    HTML 복사
+                </button>
+                <button id="export-png-btn" class="btn btn-orange btn-full">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    PNG 저장
+                </button>
+                <!-- [수정 6] 전체 초기화 버튼 -->
+                <button id="clear-btn" class="btn btn-red btn-full">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                    전체 초기화
+                </button>
+            </div>
+        </div>
 
-                /* ... (정적 스타일은 이전과 동일, 간결화를 위해 생략) ... */
-                .backup-body { font-family: 'Malgun Gothic', Arial, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
-                .chat-container { width: 100%; max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); overflow: hidden; display: flex; flex-direction: column; min-height: 400px; }
-                .messages { flex-grow: 1; padding: 10px; display: flex; flex-direction: column;}
-                
-                .message { margin: 2px 0; padding: 10px 15px; border-radius: 18px; max-width: 70%; word-wrap: break-word; line-height: 1.4; position: relative; white-space: pre-wrap; }
-                
-                .message-header { font-size: 11px; font-weight: bold; }
+        <!-- ⑥ 사용 안내 -->
+        <div class="ctrl-section" style="border-bottom:none">
+            <div class="section-label">사용 안내</div>
+            <div style="font-size:11px;color:var(--text-3);line-height:1.75">
+                <p>• 입력창에 로그를 붙여넣으면 자동 파싱</p>
+                <p style="margin-top:3px">• 발화자 이름은 로그와 동일하게 설정</p>
+                <p style="margin-top:3px">• PNG 저장은 메시지 영역만 이미지로 저장</p>
+                <p style="margin-top:3px">• HTML 복사 후 새 파일로 저장하면 백업 완료</p>
+            </div>
+        </div>
+    </div>
+</div>
 
-                .system-message { text-align: center; color: #6c757d; font-size: 12px; margin: 10px 0; }
-                
-                /* 제어 영역 스타일 (미리보기 화면에서만 필요) */
-                .control-area { padding: 10px; border-top: 1px solid #e4e6eb; }
-                .input-area { display: flex; margin-top: 10px; }
-                .setting-area { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
-                .name-edit-group { display: flex; flex-direction: column; gap: 5px; flex-grow: 1; margin-right: 10px; }
-                .name-input-group { display: flex; gap: 5px; align-items: center; }
-                #speaker-select, #new-name-input { padding: 8px 12px; border: 1px solid #cccccc; border-radius: 4px; font-size: 14px; flex-grow: 1; }
-                #speaker-select { flex-grow: 0; }
-                #add-speaker-btn, #change-name-btn { padding: 8px 12px; border: none; border-radius: 4px; background-color: #007bff; color: white; font-weight: bold; cursor: pointer; transition: background-color 0.2s; white-space: nowrap; }
-                #add-speaker-btn { background-color: #17a2b8; margin-left: 5px; }
-                #add-speaker-btn:hover { background-color: #138496; }
-                #change-name-btn { background-color: #ffc107; color: #333; }
-                #change-name-btn:hover { background-color: #e0a800; }
-                #message-input { flex-grow: 1; padding: 10px; border: 1px solid #cccccc; border-radius: 20px; margin-right: 10px; font-size: 14px; }
-                #send-btn, #copy-html-btn { padding: 10px 15px; border: none; border-radius: 20px; color: white; font-weight: bold; cursor: pointer; transition: background-color 0.2s; white-space: nowrap; }
-                #send-btn { background-color: #0084ff; }
-                #send-btn:hover { background-color: #0066cc; }
-                #copy-html-btn { background-color: #28a745; }
-                #copy-html-btn:hover { background-color: #218838; }
-                .label { font-weight: bold; color: #333; margin-right: 5px; white-space: nowrap; }
-            `;
-            
-            styleTag.innerHTML = staticStyles + dynamicStyles;
+<!-- 이미지 라이트박스 -->
+<div id="img-lightbox"><img id="img-lightbox-img" src="" alt=""></div>
+
+<!-- PNG 변환 로딩 -->
+<div id="png-loading">
+    <div class="spinner"></div>
+    <p>이미지 생성 중...</p>
+</div>
+
+<div id="toast"></div>
+
+<script>
+    // ── 로그 종류 설정 ────────────────────────────────
+    // [수정 4] regex를 단일 소스로 관리 → parsePastedLines에서 직접 참조
+    const LOG_TYPES = {
+        kakao: {
+            label: '카카오톡',
+            hint: `<b>형식:</b> [이름] [오전/오후 H:MM] 메시지<br>카카오톡 대화 내보내기 로그를 그대로 붙여넣으세요.`,
+            regex: /^\[?(.+?)\]?\s+\[?(오전|오후)?\s*\d{1,2}:\d{2}\]?\s+(.+)$/
+        },
+        twitter: {
+            label: '트위터 DM',
+            hint: `<b>형식 A:</b> 이름 TAB 메시지 TAB 시간 (탭 구분)<br><b>형식 B:</b> [이름] → 메시지(여러 줄 가능) → 오전/오후 h:mm<br>타임스탬프가 발화자 구분 기준 — 타임스탬프마다 다음 발화자로 전환됩니다.`,
+            regexTab:   /^(.+?)\t(.+?)(?:\t.+)?$/,
+            regexColon: /^(.+?):\s+(.+)$/,
+            timeRe:     /^(오전|오후)\s+\d{1,2}:\d{2}$/
+        },
+        band: {
+            label: '밴드',
+            hint: `<b>형식 A:</b> 이름(단독 줄) → 메시지 줄<br><b>형식 B:</b> <code>yyyy.mm.dd hh:mm 이름</code> → 메시지 줄<br>두 형식 모두 지원합니다.`,
+            timeRe:     /\s*\d{1,2}:\d{2}$/,
+            dateLineRe: /^\d{4}\.\d{2}\.\d{2}\s+\d{1,2}:\d{2}\s+(.+)$/
         }
+    };
 
-        // 드롭다운 메뉴 초기화 및 업데이트
-        function updateSpeakerDropdown() {
-            speakerSelect.innerHTML = '';
-            speakers.forEach(speaker => {
-                const option = document.createElement('option');
-                option.value = speaker.id;
-                option.textContent = speaker.name;
-                speakerSelect.appendChild(option);
+    let currentLogType = 'kakao';
+
+    // ── 상태 ──────────────────────────────────────────
+    // [수정 9] align 속성을 updateDynamicStyles에서 실제 참조하므로 유지
+    let speakers = [
+        { id: 0, name: "나",       color: "#6366f1", align: "flex-end",   name_color: null },
+        { id: 1, name: "상대방 A", color: "#e5e7eb", align: "flex-start", name_color: "#6b7280" }
+    ];
+    let nextSpeakerId = 2;
+
+    // ── DOM ──────────────────────────────────────────
+    const messagesContainer = document.getElementById('messages-container');
+    const emptyState        = document.getElementById('empty-state');
+    const speakerSelect     = document.getElementById('speaker-select');
+    const speakerChipList   = document.getElementById('speaker-chip-list');
+    const newNameInput      = document.getElementById('new-name-input');
+    const bubbleColorInput  = document.getElementById('bubble-color-input');
+    const nameColorInput    = document.getElementById('name-color-input');
+    const nameColorGroup    = document.getElementById('name-color-group');
+    const messageInput      = document.getElementById('message-input');
+    const dynamicStyleTag   = document.getElementById('dynamic-styles');
+    const toastEl           = document.getElementById('toast');
+    const pngLoading        = document.getElementById('png-loading');
+    const logHint           = document.getElementById('log-hint');
+
+    // ── 토스트 ───────────────────────────────────────
+    let toastTimer = null;
+    function showToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
+    }
+
+    // ── 로그 종류 탭 ─────────────────────────────────
+    function initLogTabs() {
+        document.querySelectorAll('.log-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.log-tab').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentLogType = btn.dataset.type;
+                updateLogHint();
             });
-            loadSpeakerSettings();
-        }
-        
-        // 선택된 발화자의 현재 설정(이름, 색상)을 입력 필드에 로드
-        function loadSpeakerSettings() {
-            const speakerId = getCurrentSpeakerId();
-            const speaker = speakers.find(s => s.id === speakerId);
+        });
+        updateLogHint();
+    }
+    function updateLogHint() { logHint.innerHTML = LOG_TYPES[currentLogType].hint; }
 
-            if (speaker) {
-                newNameInput.value = speaker.name;
-                bubbleColorInput.value = speaker.color;
-                
-                if (speaker.id === 0) {
-                    nameColorGroup.style.display = 'none';
-                } else {
-                    nameColorGroup.style.display = 'block';
-                    nameColorInput.value = speaker.name_color;
-                }
+    // ── [수정 1] HSL → Hex 변환 (color input 호환) ───
+    function hslToHex(h, s, l) {
+        s /= 100; l /= 100;
+        const a = s * Math.min(l, 1 - l);
+        const f = n => {
+            const k = (n + h / 30) % 12;
+            const val = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+            return Math.round(val * 255).toString(16).padStart(2, '0');
+        };
+        return `#${f(0)}${f(8)}${f(4)}`;
+    }
+
+    // [수정 1] getAutoColor → 항상 hex 반환
+    function getAutoColor(index) {
+        const hue = Math.round((index * 137.5) % 360);
+        return {
+            bg:   hslToHex(hue, 30, 88),
+            name: hslToHex(hue, 45, 38)
+        };
+    }
+
+    // ── 동적 스타일 ───────────────────────────────────
+    // [수정 9] s.align을 실제로 참조
+    function updateDynamicStyles() {
+        let css = '';
+        for (const s of speakers) {
+            if (s.id === 0) {
+                css += `
+                    .speaker-${s.id} { align-self: ${s.align}; background-color: var(--speaker-${s.id}-bubble); color: #fff; }
+                    .speaker-${s.id}.is-last-message { border-bottom-right-radius: 3px; margin-bottom: 4px; }
+                `;
+            } else {
+                css += `
+                    .speaker-${s.id} { align-self: ${s.align}; background-color: var(--speaker-${s.id}-bubble); color: var(--text-1); }
+                    .speaker-${s.id}.is-last-message { border-bottom-left-radius: 3px; margin-bottom: 0; }
+                    .header-for-speaker-${s.id} {
+                        align-self: ${s.align};
+                        color: var(--speaker-${s.id}-name);
+                        font-size: 10px; font-weight: 600;
+                        margin-left: 3px; margin-top: 2px; margin-bottom: 3px; letter-spacing: 0.2px;
+                    }
+                `;
             }
         }
+        dynamicStyleTag.innerHTML = css;
+    }
 
-        // 선택된 발화자의 색상을 업데이트하고 스타일 적용
-        function updateSpeakerColor(type) {
-            const speakerId = getCurrentSpeakerId();
-            const speaker = speakers.find(s => s.id === speakerId);
-            
-            if (!speaker) return;
+    function applyCssVariables() {
+        for (const s of speakers) {
+            document.documentElement.style.setProperty(`--speaker-${s.id}-bubble`, s.color);
+            if (s.name_color) document.documentElement.style.setProperty(`--speaker-${s.id}-name`, s.name_color);
+        }
+    }
 
-            if (type === 'bubble') {
-                speaker.color = bubbleColorInput.value;
-            } else if (type === 'name' && speaker.id !== 0) {
-                speaker.name_color = nameColorInput.value;
+    // ── 발화자 칩 ─────────────────────────────────────
+    // [수정 2] chip dot: hex로 통일되므로 HSL 파싱 로직 제거
+    // [수정 7] id !== 0인 발화자에 삭제 버튼 추가
+    function updateSpeakerChips() {
+        speakerChipList.innerHTML = '';
+        const activeId = getCurrentSpeakerId();
+        speakers.forEach(s => {
+            const chip = document.createElement('div');
+            chip.className = 'speaker-chip' + (s.id === activeId ? ' active' : '');
+            chip.dataset.id = s.id;
+
+            const dot = document.createElement('div');
+            dot.className = 'chip-dot';
+            dot.style.background = s.color; // [수정 2] 항상 hex이므로 직접 적용
+
+            const name = document.createElement('div');
+            name.className = 'chip-name';
+            name.textContent = s.name;
+
+            const tag = document.createElement('div');
+            tag.className = 'chip-tag';
+            tag.textContent = s.id === 0 ? '나' : '상대';
+
+            chip.append(dot, name, tag);
+
+            // [수정 7] 기본 발화자(id=0)가 아닐 때만 삭제 버튼 표시
+            if (s.id !== 0) {
+                const del = document.createElement('button');
+                del.className = 'chip-del';
+                del.title = '발화자 삭제';
+                del.textContent = '×';
+                del.addEventListener('click', e => {
+                    e.stopPropagation(); // 칩 선택 이벤트 방지
+                    deleteSpeaker(s.id);
+                });
+                chip.appendChild(del);
             }
 
-            updateStyles();
-        }
+            chip.addEventListener('click', () => {
+                speakerSelect.value = s.id;
+                loadSpeakerSettings();
+                updateSpeakerChips();
+            });
+            speakerChipList.appendChild(chip);
+        });
+    }
 
+    // [수정 7] 발화자 삭제 함수
+    function deleteSpeaker(id) {
+        speakers = speakers.filter(s => s.id !== id);
+        // CSS 변수 제거
+        document.documentElement.style.removeProperty(`--speaker-${id}-bubble`);
+        document.documentElement.style.removeProperty(`--speaker-${id}-name`);
+        updateDynamicStyles();
+        applyCssVariables();
+        // 선택 중이던 발화자가 삭제됐으면 첫 번째로 이동
+        if (getCurrentSpeakerId() === id) speakerSelect.value = speakers[0].id;
+        updateSpeakerDropdown();
+        showToast('발화자가 삭제되었습니다.');
+    }
 
-        // 선택된 발화자 ID를 가져오는 함수
-        function getCurrentSpeakerId() {
-            return parseInt(speakerSelect.value, 10);
+    // ── 드롭다운 ─────────────────────────────────────
+    function updateSpeakerDropdown() {
+        const prevId = getCurrentSpeakerId();
+        speakerSelect.innerHTML = '';
+        speakers.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id; opt.textContent = s.name;
+            speakerSelect.appendChild(opt);
+        });
+        // 이전 선택 복원 (존재하는 경우)
+        if (speakers.find(s => s.id === prevId)) speakerSelect.value = prevId;
+        loadSpeakerSettings();
+        updateSpeakerChips();
+    }
+
+    function loadSpeakerSettings() {
+        const id = getCurrentSpeakerId();
+        const s  = speakers.find(s => s.id === id);
+        if (!s) return;
+        newNameInput.value     = s.name;
+        bubbleColorInput.value = s.color; // [수정 1] 항상 hex → 그대로 사용
+        if (s.id === 0) {
+            nameColorGroup.style.visibility = 'hidden';
+        } else {
+            nameColorGroup.style.visibility = 'visible';
+            nameColorInput.value = s.name_color || '#6b7280';
         }
-        
-        // 발화자 추가 기능
-        function addSpeaker() {
-            const newId = nextSpeakerId++;
-            const colorIndex = (newId - 1) % additionalColors.length;
-            const colors = additionalColors[colorIndex];
-            
-            const newSpeaker = {
-                id: newId, 
-                name: `상대방 ${String.fromCharCode(65 + newId - 1)}`,
-                color: colors.bg,
-                align: "flex-start",
-                name_color: colors.name
-            };
-            
-            speakers.push(newSpeaker);
-            
+    }
+
+    function updateSpeakerColor(type) {
+        const id = getCurrentSpeakerId();
+        const s  = speakers.find(s => s.id === id);
+        if (!s) return;
+        if (type === 'bubble') {
+            s.color = bubbleColorInput.value;
+            document.documentElement.style.setProperty(`--speaker-${id}-bubble`, s.color);
+            updateSpeakerChips();
+        } else if (type === 'name' && s.id !== 0) {
+            s.name_color = nameColorInput.value;
+            document.documentElement.style.setProperty(`--speaker-${id}-name`, s.name_color);
+        }
+    }
+
+    function getCurrentSpeakerId() { return parseInt(speakerSelect.value, 10); }
+
+    // ── 발화자 추가 ───────────────────────────────────
+    function addSpeaker() {
+        const newId  = nextSpeakerId++;
+        const colors = getAutoColor(newId); // [수정 1] 이제 hex 반환
+        const newS   = { id: newId, name: `상대방 ${speakers.length}`, color: colors.bg, align: 'flex-start', name_color: colors.name };
+        speakers.push(newS);
+        updateDynamicStyles(); applyCssVariables();
+        updateSpeakerDropdown();
+        speakerSelect.value = newId;
+        loadSpeakerSettings(); updateSpeakerChips();
+        messageInput.focus();
+        showToast(`"${newS.name}" 발화자가 추가되었습니다.`);
+    }
+
+    // ── 이름 변경 ─────────────────────────────────────
+    function changeSpeakerName() {
+        const id   = getCurrentSpeakerId();
+        const name = newNameInput.value.trim();
+        if (!name) { showToast('새 이름을 입력해주세요.'); return; }
+        const s = speakers.find(s => s.id === id);
+        if (s) {
+            s.name = name;
             updateSpeakerDropdown();
-            updateStyles(); 
-            
-            speakerSelect.value = newId;
-            newNameInput.value = newSpeaker.name;
-            loadSpeakerSettings();
-            input.focus();
-            alert(`"${newSpeaker.name}"이(가) 추가되었습니다.`);
+            speakerSelect.value = id;
+            updateSpeakerChips();
+            messageInput.focus();
+            showToast(`이름이 "${name}"으로 변경되었습니다.`);
+        }
+    }
+
+    // ── [수정 6] 전체 초기화 ──────────────────────────
+    function clearMessages() {
+        if (!messagesContainer.querySelector('.message')) { showToast('삭제할 메시지가 없습니다.'); return; }
+        if (!confirm('모든 메시지를 삭제할까요?')) return;
+        // 빈 상태 요소를 제외한 모든 자식 제거
+        Array.from(messagesContainer.children).forEach(el => {
+            if (el.id !== 'empty-state') messagesContainer.removeChild(el);
+        });
+        syncEmptyState();
+        showToast('모든 메시지가 초기화되었습니다.');
+    }
+
+    function syncEmptyState() {
+        emptyState.style.display = messagesContainer.querySelector('.message') ? 'none' : 'flex';
+    }
+
+    // ── 메시지 DOM 생성 ───────────────────────────────
+    function addMessageToDOM(speaker, text) {
+        const allMsgs = messagesContainer.getElementsByClassName('message');
+        const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : null;
+        const lastEl  = messagesContainer.lastElementChild;
+        const isCont  = lastMsg && lastMsg.classList.contains(`speaker-${speaker.id}`);
+
+        if (isCont) {
+            lastMsg.classList.remove('is-last-message');
+            if (lastEl && lastEl.classList.contains('message-header')) messagesContainer.removeChild(lastEl);
         }
 
-        // 발화자 이름 변경 기능
-        function changeSpeakerName() {
-            const speakerId = getCurrentSpeakerId();
-            const newName = newNameInput.value.trim();
+        const div = document.createElement('div');
+        div.classList.add('message', `speaker-${speaker.id}`, 'is-last-message');
+        const content = document.createElement('div');
+        content.className = 'msg-text';
+        content.textContent = text;
+        div.appendChild(content);
+        attachMessageActions(div, content);
+        messagesContainer.appendChild(div);
 
-            if (!newName) {
-                alert("새로운 이름을 입력해주세요.");
-                return;
-            }
-
-            const speaker = speakers.find(s => s.id === speakerId);
-            if (speaker) {
-                speaker.name = newName;
-                updateSpeakerDropdown();
-                speakerSelect.value = speakerId;
-                
-                alert(`발화자 이름이 "${newName}"으로 변경되었습니다.`);
-                loadSpeakerSettings(); 
-                input.focus();
-            }
+        if (speaker.id !== 0) {
+            const hdr = document.createElement('div');
+            hdr.classList.add('message-header', `header-for-speaker-${speaker.id}`);
+            hdr.textContent = speaker.name;
+            messagesContainer.appendChild(hdr);
         }
 
-        // --- 메시지 DOM 생성 함수 (이름 표시 로직 변경) ---
-        /**
-         * 채팅 메시지 DOM을 생성하고 화면에 추가합니다.
-         * @param {object} speaker - 발화자 객체 (speakers 배열의 요소)
-         * @param {string} text - 메시지 텍스트
-         * @returns {HTMLElement} - 메시지 내용(content) div (멀티라인 처리를 위해)
-         */
-        function addMessageToDOM(speaker, text) {
-            // 1. 연속 메시지 스타일링 로직
-            const allMessages = messagesContainer.querySelectorAll('.message');
-            const lastMessage = allMessages[allMessages.length - 1];
-            
-            // [신규] 마지막 요소 (메시지 또는 이름표)
-            const lastElement = messagesContainer.lastElementChild; 
+        syncEmptyState();
+        return content;
+    }
 
-            // 마지막 메시지가 같은 사람인지 확인
-            const isContinuousMessage = lastMessage && lastMessage.classList.contains(`speaker-${speaker.id}`);
+    // ── 이미지 메시지 DOM 생성 ───────────────────────
+    function addImageToDOM(speaker, src) {
+        const allMsgs = messagesContainer.getElementsByClassName('message');
+        const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : null;
+        const lastEl  = messagesContainer.lastElementChild;
+        const isCont  = lastMsg && lastMsg.classList.contains(`speaker-${speaker.id}`);
 
-            if (isContinuousMessage) {
-                // 1. 이전 메시지의 꼬리 제거
-                lastMessage.classList.remove('is-last-message');
-                
-                // 2. [수정] 이전 요소가 이름표('message-header')라면 제거
-                //   (새 이름표를 맨 뒤에 다시 붙일 것이기 때문)
-                if (lastElement && lastElement.classList.contains('message-header')) {
-                    messagesContainer.removeChild(lastElement);
+        if (isCont) {
+            lastMsg.classList.remove('is-last-message');
+            if (lastEl && lastEl.classList.contains('message-header')) messagesContainer.removeChild(lastEl);
+        }
+
+        const div = document.createElement('div');
+        div.classList.add('message', `speaker-${speaker.id}`, 'is-last-message');
+
+        const wrap = document.createElement('div');
+        wrap.className = 'msg-img-wrap';
+        const img = document.createElement('img');
+        img.className = 'msg-image';
+        img.src = src;
+        img.alt = '이미지';
+        img.addEventListener('click', () => openLightbox(src));
+        wrap.appendChild(img);
+        div.appendChild(wrap);
+        attachMessageActions(div, null);
+        messagesContainer.appendChild(div);
+
+        if (speaker.id !== 0) {
+            const hdr = document.createElement('div');
+            hdr.classList.add('message-header', `header-for-speaker-${speaker.id}`);
+            hdr.textContent = speaker.name;
+            messagesContainer.appendChild(hdr);
+        }
+
+        syncEmptyState();
+    }
+
+    function openLightbox(src) {
+        const lb  = document.getElementById('img-lightbox');
+        const img = document.getElementById('img-lightbox-img');
+        img.src = src;
+        lb.classList.add('show');
+    }
+
+    // ── 메시지 편집 헬퍼 ─────────────────────────────
+    function attachMessageActions(msgEl, textEl) {
+        const actions = document.createElement('div');
+        actions.className = 'msg-actions';
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'msg-btn msg-edit-btn';
+        editBtn.title = '편집 (더블클릭)';
+        editBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'msg-btn msg-del-btn';
+        delBtn.title = '삭제';
+        delBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+
+        actions.append(editBtn, delBtn);
+        msgEl.prepend(actions);
+
+        if (textEl) {
+            editBtn.addEventListener('click', e => { e.stopPropagation(); enableEdit(textEl); });
+            textEl.addEventListener('dblclick', () => enableEdit(textEl));
+        } else {
+            editBtn.style.display = 'none';
+        }
+        delBtn.addEventListener('click', e => { e.stopPropagation(); deleteMessage(msgEl); });
+    }
+
+    function enableEdit(textEl) {
+        if (textEl.contentEditable === 'true') return;
+        const msgEl   = textEl.closest('.message');
+        const original = textEl.textContent;
+
+        textEl.contentEditable = 'true';
+        msgEl.classList.add('editing');
+        textEl.focus();
+
+        // 커서를 끝으로 이동
+        const range = document.createRange();
+        range.selectNodeContents(textEl);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        function commit() {
+            textEl.contentEditable = 'false';
+            msgEl.classList.remove('editing');
+            textEl.textContent = textEl.innerText; // contenteditable의 <br>/<div> 제거
+        }
+
+        function cancel() {
+            textEl.textContent = original;
+            textEl.contentEditable = 'false';
+            msgEl.classList.remove('editing');
+        }
+
+        textEl.addEventListener('keydown', function onKey(e) {
+            if (e.key === 'Escape') {
+                cancel();
+                textEl.removeEventListener('keydown', onKey);
+                textEl.removeEventListener('blur', onBlur);
+            } else if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                commit();
+                textEl.removeEventListener('keydown', onKey);
+                textEl.removeEventListener('blur', onBlur);
+            }
+        });
+
+        function onBlur() { commit(); }
+        textEl.addEventListener('blur', onBlur, { once: true });
+    }
+
+    function deleteMessage(msgEl) {
+        msgEl.remove();
+        rebuildMessageHeaders();
+        syncEmptyState();
+        showToast('메시지가 삭제되었습니다.');
+    }
+
+    // is-last-message 및 발화자 이름 헤더를 전체 재구성
+    function rebuildMessageHeaders() {
+        messagesContainer.querySelectorAll('.message-header').forEach(h => h.remove());
+        const msgs = [...messagesContainer.querySelectorAll('.message')];
+        msgs.forEach(m => m.classList.remove('is-last-message'));
+
+        msgs.forEach((msg, i) => {
+            const sc   = [...msg.classList].find(c => /^speaker-\d+$/.test(c));
+            const next = msgs[i + 1];
+            const nextSc = next ? [...next.classList].find(c => /^speaker-\d+$/.test(c)) : null;
+
+            if (sc !== nextSc) {
+                msg.classList.add('is-last-message');
+                const sid = sc ? parseInt(sc.replace('speaker-', '')) : null;
+                if (sid !== null && sid !== 0) {
+                    const sp = speakers.find(s => s.id === sid);
+                    const hdr = document.createElement('div');
+                    hdr.classList.add('message-header', `header-for-speaker-${sid}`);
+                    hdr.textContent = sp ? sp.name : '';
+                    msg.after(hdr);
                 }
             }
+        });
+    }
 
-            // 3. 새 메시지(말풍선) 생성 및 꼬리 추가
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message', `speaker-${speaker.id}`, 'is-last-message');
-            
-            // 4. 메시지 내용
-            const content = document.createElement('div');
-            content.textContent = text; // textContent를 사용해 줄바꿈(\n)이 적용되도록 함
-            messageDiv.appendChild(content);
+    // ── 메시지 전송 ───────────────────────────────────
+    function sendMessage() {
+        const text = messageInput.value.trim();
+        if (!text) return;
+        const s = speakers.find(s => s.id === getCurrentSpeakerId());
+        if (!s) return;
+        addMessageToDOM(s, text);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        messageInput.value = '';
+        messageInput.focus();
+    }
 
-            // 5. DOM에 말풍선 추가
-            messagesContainer.appendChild(messageDiv);
+    // ── 로그 파싱 (로그 종류별) ───────────────────────
+    // [수정 4] LOG_TYPES의 regex를 직접 참조, [수정 5] timeRe를 LOG_TYPES.band.timeRe로 통합
+    function parsePastedLines(lines) {
+        const results = [];
 
-            // 6. 말풍선 아래에 이름표 추가
-            if (speaker.id !== 0) {
-                const header = document.createElement('div');
-                header.classList.add('message-header', `header-for-speaker-${speaker.id}`);
-                header.textContent = speaker.name;
-                messagesContainer.appendChild(header); // 말풍선 뒤에 추가
-            }
-            
-            // 7. 멀티라인 입력을 위해 content-div 반환
-            return content;
-        }
+        if (currentLogType === 'kakao') {
+            const re = LOG_TYPES.kakao.regex; // [수정 4]
+            let lastEntry = null;
+            lines.forEach(line => {
+                const t = line.trim(); if (!t) return;
+                const m = t.match(re);
+                if (m) { lastEntry = { speakerName: m[1].trim(), text: m[3].trim() }; results.push(lastEntry); }
+                else if (lastEntry) { lastEntry.text += '\n' + t; }
+            });
 
-        // --- sendMessage 함수 ---
-        function sendMessage() {
-            const text = input.value.trim();
-            
-            if (text === "") return;
+        } else if (currentLogType === 'twitter') {
+            const { regexTab: reTab, regexColon: reColon, timeRe } = LOG_TYPES.twitter;
+            const fallbackName = speakers.find(s => s.id === getCurrentSpeakerId())?.name ?? null;
 
-            const speakerId = getCurrentSpeakerId();
-            const speaker = speakers.find(s => s.id === speakerId);
-            
-            if (!speaker) return;
-            
-            addMessageToDOM(speaker, text);
-            
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            // 형식 B: 발화자 순환 링 — 타임스탬프마다 다음 발화자로 전환
+            const ring        = speakers.map(s => s.name);
+            let ringIdx       = 0;
+            let currentSpeaker = ring[0] ?? fallbackName;
+            let pendingMsgs   = []; // 각 줄이 별개 말풍선
+            let expectName    = true; // 시작 또는 타임스탬프 직후: 발화자명 줄 기대
 
-            input.value = '';
-            input.focus();
-        }
-
-        // 붙여넣기(paste) 핸들러
-        function handlePaste(event) {
-            event.preventDefault(); 
-            
-            const pastedText = event.clipboardData.getData('text');
-            const lines = pastedText.split('\n');
-            
-            // ^\[?   : (선택사항) 줄 시작 시 '['
-            // (.+?)  : (캡처 1) 이름 (최소한으로 매칭)
-            // \]?\s+   : (선택사항) ']'가 오고, 뒤에 공백 1개 이상
-            // \[.+?\]\s+: (필수) [타임스탬프] 형식과 공백
-            // (.+)   : (캡처 2) 나머지 메시지 전체
-            const regex = /^\[?(.+?)\]?\s+\[.+?\]\s+(.+)$/;
-            
-            let lastMessageContentElement = null; 
-            let unfoundSpeakers = new Set(); 
+            const flushMsgs = () => {
+                const name = currentSpeaker ?? fallbackName;
+                if (name) pendingMsgs.forEach(text => {
+                    if (text.trim()) results.push({ speakerName: name, text: text.trim() });
+                });
+                pendingMsgs = [];
+            };
 
             lines.forEach(line => {
-                const trimmedLine = line.trim();
-                if (trimmedLine === "") return; 
+                const t = line.trim(); if (!t) return;
 
-                const match = trimmedLine.match(regex);
+                // 형식 A: 탭 구분 한 줄
+                let m = t.match(reTab);
+                if (m) { flushMsgs(); results.push({ speakerName: m[1].trim(), text: m[2].trim() }); return; }
+                // 형식 A: 콜론 구분 한 줄
+                m = t.match(reColon);
+                if (m) { flushMsgs(); results.push({ speakerName: m[1].trim(), text: m[2].trim() }); return; }
 
-                if (match) {
-                    const speakerName = match[1].trim(); 
-                    const messageText = match[2].trim();
-                    
-                    const speaker = speakers.find(s => s.name === speakerName);
+                // 형식 B: 타임스탬프 → 현재 발화자의 메시지 확정 후 다음 발화자로 전환
+                if (timeRe.test(t)) {
+                    flushMsgs();
+                    ringIdx = (ringIdx + 1) % Math.max(ring.length, 1);
+                    currentSpeaker = ring[ringIdx] ?? fallbackName;
+                    expectName = true;
+                    return;
+                }
 
-                    if (speaker) {
-                        lastMessageContentElement = addMessageToDOM(speaker, messageText);
-                    } else {
-                        unfoundSpeakers.add(speakerName);
-                        lastMessageContentElement = null; 
+                // 형식 B: 타임스탬프 직후 첫 줄 — 등록된 발화자명이면 명시적 전환
+                if (expectName) {
+                    expectName = false;
+                    const matched = speakers.find(s => s.name === t);
+                    if (matched) {
+                        currentSpeaker = t;
+                        ringIdx = ring.indexOf(t);
+                        return; // 이름 줄은 메시지로 추가하지 않음
                     }
-                } else if (lastMessageContentElement) {
-                    // 정규식에 맞지 않는 줄 (아마도 멀티라인 메시지)
-                    lastMessageContentElement.textContent += '\n' + trimmedLine;
-                } else {
-                    // 정규식에도 맞지 않고, 멀티라인도 아닌 경우 (예: 시스템 메시지)
-                    console.warn("Skipping unparsable line:", trimmedLine);
+                    // 발화자명이 아니면 그대로 메시지로 처리
                 }
+
+                // 형식 B: 각 줄 = 별개 말풍선
+                pendingMsgs.push(t);
             });
+            flushMsgs();
 
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
-            if (unfoundSpeakers.size > 0) {
-                alert(`다음 발화자를 찾을 수 없어 일부 메시지를 추가하지 못했습니다:\n${[...unfoundSpeakers].join(', ')}\n\n'발화자 추가' 또는 '이름 변경' 기능을 이용해 로그와 동일한 이름으로 설정해주세요.`);
-            }
-        }
-        
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
-                sendMessage();
-            }
-        }
+        } else if (currentLogType === 'band') {
+            const { timeRe, dateLineRe } = LOG_TYPES.band;
+            let pendingName = null;
+            lines.forEach(line => {
+                const t = line.trim(); if (!t) return;
 
-        function copyMessagesAsHtml() {
-            const messages = messagesContainer.querySelectorAll('.message, .system-message, .message-header');
-            let messagesHtml = '';
-
-            messages.forEach(msg => {
-                const classes = Array.from(msg.classList).join(' ');
-                const innerHtml = msg.innerHTML;
-                messagesHtml += `<div class="${classes}">${innerHtml}</div>\n`;
-            });
-
-            const chatStyles = styleTag.innerHTML;
-            
-            const fullHtmlContent = `<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <title>DM 백업</title>
-    <style>
-        /* 대화창 스타일 */
-        ${chatStyles}
-    </style>
-</head>
-<body class="backup-body">
-    <div class="chat-container">
-        <div class="messages">
-${messagesHtml}
-        </div>
-    </div>
-</body>
-</html>`;
-
-            navigator.clipboard.writeText(fullHtmlContent)
-                .then(() => {
-                    alert('HTML 코드 복사 완료');
-                })
-                .catch(err => {
-                    console.error('클립보드 복사 실패:', err);
-                    alert('클립보드 복사에 실패했습니다. 콘솔을 확인하세요. (브라우저 보안 문제일 수 있습니다.)');
-                });
-        }
-        
-        updateStyles();
-        updateSpeakerDropdown();
-
-        input.addEventListener('paste', handlePaste);
-    </script>
-</body>
-</html>
-=======
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <title>DM 백업</title>
-    <style id="chat-styles">
-        
-    </style>
-</head>
-<body>
-    <div class="chat-container">
-        <div class="messages" id="messages-container" style="height: 500px; overflow-y: auto"></div>
-
-        <div class="control-area">
-            
-            <div class="setting-area">
-                <div class="name-edit-group">
-                    <div class="name-input-group">
-                        <label for="speaker-select" class="label">발화자 선택:</label>
-                        <select id="speaker-select" onchange="loadSpeakerSettings()"></select>
-                        <button id="add-speaker-btn" onclick="addSpeaker()">발화자 추가</button>
-                    </div>
-                    
-                    <div class="name-input-group">
-                        <label for="new-name-input" class="label">새 이름 입력:</label>
-                        <input type="text" id="new-name-input" placeholder="이름을 입력하세요">
-                        <button id="change-name-btn" onclick="changeSpeakerName()">이름 변경</button>
-                    </div>
-                </div>
-                
-                <button id="copy-html-btn" onclick="copyMessagesAsHtml()">HTML 복사</button>
-            </div>
-            
-            <div class="color-selection-area" style="display: flex; gap: 20px; margin-bottom: 10px; flex-wrap: wrap;">
-                <div>
-                    <label for="bubble-color-input" class="label">말풍선 색상:</label>
-                    <input type="color" id="bubble-color-input" onchange="updateSpeakerColor('bubble')">
-                </div>
-                <div id="name-color-group">
-                    <label for="name-color-input" class="label">이름 색상:</label>
-                    <input type="color" id="name-color-input" onchange="updateSpeakerColor('name')">
-                </div>
-            </div>
-            <div class="input-area">
-                <input type="text" id="message-input" placeholder="메시지 입력 또는 카카오톡 로그 붙여넣기" onkeypress="handleKeyPress(event)">
-                <button id="send-btn" onclick="sendMessage()">보내기</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // 초기 발화자 설정
-        let speakers = [
-            { id: 0, name: "나", color: "#0084ff", align: "flex-end", name_color: "none" }, // '나'는 이름 색상 무시
-            { id: 1, name: "상대방 A", color: "#e4e6eb", align: "flex-start", name_color: "#536471" }
-        ];
-        let nextSpeakerId = 2; // 다음에 추가될 발화자의 ID
-
-        const messagesContainer = document.getElementById('messages-container');
-        const speakerSelect = document.getElementById('speaker-select');
-        const newNameInput = document.getElementById('new-name-input');
-        const bubbleColorInput = document.getElementById('bubble-color-input');
-        const nameColorInput = document.getElementById('name-color-input');
-        const nameColorGroup = document.getElementById('name-color-group');
-        const input = document.getElementById('message-input');
-        const styleTag = document.getElementById('chat-styles');
-
-        // 발화자별 기본 색상
-        const additionalColors = [
-            { bg: "#ffe0b2", name: "#dc3545" },
-            { bg: "#b3e5fc", name: "#00bcd4" },
-            { bg: "#c8e6c9", name: "#4caf50" },
-            { bg: "#ffccbc", name: "#ff5722" }
-        ];
-
-
-        // 기본 CSS와 동적 CSS를 결합하여 <style> 태그를 업데이트합니다.
-        function updateStyles() {
-            let dynamicStyles = ``;
-            
-            // 발화자별 스타일
-            for (const s of speakers) {
-                if (s.id === 0) {
-                    // '나' 스타일 
-                    dynamicStyles += `
-                        .speaker-0 {
-                            align-self: ${s.align};
-                            background-color: ${s.color};
-                            color: #ffffff;
-                        }
-                        .speaker-0.is-last-message {
-                            border-bottom-right-radius: 2px;
-                            margin-bottom: 5px; 
-                        }
-                    `;
-                } else {
-                    // 상대방 스타일
-                    dynamicStyles += `
-                        .speaker-${s.id} {
-                            align-self: ${s.align};
-                            background-color: ${s.color};
-                            color: #050505;
-                        }
-
-                        /* 말풍선 밖의 헤더 스타일 (아래로 이동) */
-                        .header-for-speaker-${s.id} {
-                            align-self: ${s.align};
-                            color: ${s.name_color};
-                            margin-left: 5px; /* 말풍선과 정렬 */
-                            margin-top: 2px; /* 말풍선과 이름 사이 간격 */
-                            margin-bottom: 5px; /* 이름과 다음 말풍선 블록 사이 간격 */
-                        }
-
-                        .speaker-${s.id}.is-last-message {
-                            border-bottom-left-radius: 2px;
-                            /* [수정] 이름표가 여백을 대신 가지므로, 마지막 말풍선은 여백 0 */
-                            margin-bottom: 0px; 
-                        }
-                    `;
+                // 형식 B: yyyy.mm.dd hh:mm 발화자명
+                const dateMatch = t.match(dateLineRe);
+                if (dateMatch) {
+                    pendingName = dateMatch[1].trim();
+                    return;
                 }
-            }
 
-            // 공통/제어 CSS (정적 스타일)
-            const staticStyles = `
-                /* ... (정적 스타일은 이전과 동일, 간결화를 위해 생략) ... */
+                // 시간만 있는 줄 스킵 (형식 A 보조)
+                if (/^\d{1,2}:\d{2}$/.test(t)) return;
+
+                if (pendingName === null) {
+                    // 형식 A: 이름 단독 줄
+                    const matched = speakers.find(s => s.name === t);
+                    if (matched) { pendingName = t; }
+                    return;
+                }
+
+                // pendingName이 있으면 이 줄은 메시지
+                const msgText = t.replace(timeRe, '').trim();
+                results.push({ speakerName: pendingName, text: msgText || t });
+                pendingName = null;
+            });
+        }
+
+        return results;
+    }
+
+    // ── 붙여넣기 ─────────────────────────────────────
+    function handlePaste(event) {
+        event.preventDefault();
+        const rawText = event.clipboardData.getData('text');
+        const lines   = rawText.split('\n');
+        const parsed  = parsePastedLines(lines);
+        const missed  = new Set();
+
+        if (parsed.length > 0) {
+            parsed.forEach(({ speakerName, text }) => {
+                const s = speakers.find(s => s.name === speakerName);
+                if (s) { addMessageToDOM(s, text); }
+                else   { missed.add(speakerName); }
+            });
+            if (missed.size > 0) showToast(`미등록 발화자: ${[...missed].join(', ')}`);
+        } else {
+            // 로그 형식이 아닌 경우: 현재 선택된 발화자의 메시지로 추가
+            const s = speakers.find(s => s.id === getCurrentSpeakerId());
+            if (s && rawText.trim()) addMessageToDOM(s, rawText.trim());
+        }
+
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // ── HTML 복사 ─────────────────────────────────────
+    function copyMessagesAsHtml() {
+        const msgs = messagesContainer.querySelectorAll('.message, .system-message, .message-header');
+        let html = '';
+        msgs.forEach(m => {
+            const clone = m.cloneNode(true);
+            clone.querySelectorAll('.msg-actions').forEach(a => a.remove());
+            html += `<div class="${[...m.classList].join(' ')}">${clone.innerHTML}</div>\n`;
+        });
+
+        // 고정 정적 스타일 (복사본용)
+        const fixedStaticCss = `
                 .backup-body { font-family: 'Malgun Gothic', Arial, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
                 .chat-container { width: 100%; max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); overflow: hidden; display: flex; flex-direction: column; min-height: 400px; }
                 .messages { flex-grow: 1; padding: 10px; display: flex; flex-direction: column; }
-                
                 .message { margin: 2px 0; padding: 10px 15px; border-radius: 18px; max-width: 70%; word-wrap: break-word; line-height: 1.4; position: relative; white-space: pre-wrap; }
-                
                 .message-header { font-size: 12px; font-weight: bold; }
+                .system-message { text-align: center; color: #6c757d; font-size: 12px; margin: 10px 0; }`;
 
-                .system-message { text-align: center; color: #6c757d; font-size: 12px; margin: 10px 0; }
-                
-                /* 제어 영역 스타일 (미리보기 화면에서만 필요) */
-                .control-area { padding: 10px; border-top: 1px solid #e4e6eb; }
-                .input-area { display: flex; margin-top: 10px; }
-                .setting-area { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
-                .name-edit-group { display: flex; flex-direction: column; gap: 5px; flex-grow: 1; margin-right: 10px; }
-                .name-input-group { display: flex; gap: 5px; align-items: center; }
-                #speaker-select, #new-name-input { padding: 8px 12px; border: 1px solid #cccccc; border-radius: 4px; font-size: 14px; flex-grow: 1; }
-                #speaker-select { flex-grow: 0; }
-                #add-speaker-btn, #change-name-btn { padding: 8px 12px; border: none; border-radius: 4px; background-color: #007bff; color: white; font-weight: bold; cursor: pointer; transition: background-color 0.2s; white-space: nowrap; }
-                #add-speaker-btn { background-color: #17a2b8; margin-left: 5px; }
-                #add-speaker-btn:hover { background-color: #138496; }
-                #change-name-btn { background-color: #ffc107; color: #333; }
-                #change-name-btn:hover { background-color: #e0a800; }
-                #message-input { flex-grow: 1; padding: 10px; border: 1px solid #cccccc; border-radius: 20px; margin-right: 10px; font-size: 14px; }
-                #send-btn, #copy-html-btn { padding: 10px 15px; border: none; border-radius: 20px; color: white; font-weight: bold; cursor: pointer; transition: background-color 0.2s; white-space: nowrap; }
-                #send-btn { background-color: #0084ff; }
-                #send-btn:hover { background-color: #0066cc; }
-                #copy-html-btn { background-color: #28a745; }
-                #copy-html-btn:hover { background-color: #218838; }
-                .label { font-weight: bold; color: #333; margin-right: 5px; white-space: nowrap; }
-            `;
-            
-            styleTag.innerHTML = staticStyles + dynamicStyles;
-        }
-
-        // 드롭다운 메뉴 초기화 및 업데이트
-        function updateSpeakerDropdown() {
-            speakerSelect.innerHTML = '';
-            speakers.forEach(speaker => {
-                const option = document.createElement('option');
-                option.value = speaker.id;
-                option.textContent = speaker.name;
-                speakerSelect.appendChild(option);
-            });
-            loadSpeakerSettings();
-        }
-        
-        // 선택된 발화자의 현재 설정(이름, 색상)을 입력 필드에 로드
-        function loadSpeakerSettings() {
-            const speakerId = getCurrentSpeakerId();
-            const speaker = speakers.find(s => s.id === speakerId);
-
-            if (speaker) {
-                newNameInput.value = speaker.name;
-                bubbleColorInput.value = speaker.color;
-                
-                if (speaker.id === 0) {
-                    nameColorGroup.style.display = 'none';
-                } else {
-                    nameColorGroup.style.display = 'block';
-                    nameColorInput.value = speaker.name_color;
-                }
+        // 발화자별 동적 CSS (실제 색상값으로 직접 생성)
+        let speakerCss = '';
+        for (const s of speakers) {
+            if (s.id === 0) {
+                speakerCss += `
+                        .speaker-0 { align-self: flex-end; background-color: ${s.color}; color: #ffffff; }
+                        .speaker-0.is-last-message { border-bottom-right-radius: 2px; margin-bottom: 5px; }`;
+            } else {
+                speakerCss += `
+                        .speaker-${s.id} { align-self: flex-start; background-color: ${s.color}; color: #050505; }
+                        .header-for-speaker-${s.id} { align-self: flex-start; color: ${s.name_color || '#536471'}; margin-left: 5px; margin-top: 2px; margin-bottom: 5px; }
+                        .speaker-${s.id}.is-last-message { border-bottom-left-radius: 2px; margin-bottom: 0px; }`;
             }
         }
 
-        // 선택된 발화자의 색상을 업데이트하고 스타일 적용
-        function updateSpeakerColor(type) {
-            const speakerId = getCurrentSpeakerId();
-            const speaker = speakers.find(s => s.id === speakerId);
-            
-            if (!speaker) return;
-
-            if (type === 'bubble') {
-                speaker.color = bubbleColorInput.value;
-            } else if (type === 'name' && speaker.id !== 0) {
-                speaker.name_color = nameColorInput.value;
-            }
-
-            updateStyles();
-        }
-
-
-        // 선택된 발화자 ID를 가져오는 함수
-        function getCurrentSpeakerId() {
-            return parseInt(speakerSelect.value, 10);
-        }
-        
-        // 발화자 추가 기능
-        function addSpeaker() {
-            const newId = nextSpeakerId++;
-            const colorIndex = (newId - 1) % additionalColors.length;
-            const colors = additionalColors[colorIndex];
-            
-            const newSpeaker = {
-                id: newId, 
-                name: `상대방 ${String.fromCharCode(65 + newId - 1)}`,
-                color: colors.bg,
-                align: "flex-start",
-                name_color: colors.name
-            };
-            
-            speakers.push(newSpeaker);
-            
-            updateSpeakerDropdown();
-            updateStyles(); 
-            
-            speakerSelect.value = newId;
-            newNameInput.value = newSpeaker.name;
-            loadSpeakerSettings();
-            input.focus();
-            alert(`"${newSpeaker.name}"이(가) 추가되었습니다.`);
-        }
-
-        // 발화자 이름 변경 기능
-        function changeSpeakerName() {
-            const speakerId = getCurrentSpeakerId();
-            const newName = newNameInput.value.trim();
-
-            if (!newName) {
-                alert("새로운 이름을 입력해주세요.");
-                return;
-            }
-
-            const speaker = speakers.find(s => s.id === speakerId);
-            if (speaker) {
-                speaker.name = newName;
-                updateSpeakerDropdown();
-                speakerSelect.value = speakerId;
-                
-                alert(`발화자 이름이 "${newName}"으로 변경되었습니다.`);
-                loadSpeakerSettings(); 
-                input.focus();
-            }
-        }
-
-        // --- 메시지 DOM 생성 함수 (이름 표시 로직 변경) ---
-        /**
-         * 채팅 메시지 DOM을 생성하고 화면에 추가합니다.
-         * @param {object} speaker - 발화자 객체 (speakers 배열의 요소)
-         * @param {string} text - 메시지 텍스트
-         * @returns {HTMLElement} - 메시지 내용(content) div (멀티라인 처리를 위해)
-         */
-        function addMessageToDOM(speaker, text) {
-            // 1. 연속 메시지 스타일링 로직
-            const allMessages = messagesContainer.querySelectorAll('.message');
-            const lastMessage = allMessages[allMessages.length - 1];
-            
-            // [신규] 마지막 요소 (메시지 또는 이름표)
-            const lastElement = messagesContainer.lastElementChild; 
-
-            // 마지막 메시지가 같은 사람인지 확인
-            const isContinuousMessage = lastMessage && lastMessage.classList.contains(`speaker-${speaker.id}`);
-
-            if (isContinuousMessage) {
-                // 1. 이전 메시지의 꼬리 제거
-                lastMessage.classList.remove('is-last-message');
-                
-                // 2. [수정] 이전 요소가 이름표('message-header')라면 제거
-                //    (새 이름표를 맨 뒤에 다시 붙일 것이기 때문)
-                if (lastElement && lastElement.classList.contains('message-header')) {
-                    messagesContainer.removeChild(lastElement);
-                }
-            }
-
-            // 3. 새 메시지(말풍선) 생성 및 꼬리 추가
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message', `speaker-${speaker.id}`, 'is-last-message');
-            
-            // 4. 메시지 내용
-            const content = document.createElement('div');
-            content.textContent = text; // textContent를 사용해 줄바꿈(\n)이 적용되도록 함
-            messageDiv.appendChild(content);
-
-            // 5. DOM에 말풍선 추가
-            messagesContainer.appendChild(messageDiv);
-
-            // 6. [수정] '나'가 아닐 경우, 말풍선 *아래*에 이름표 추가
-            if (speaker.id !== 0) {
-                const header = document.createElement('div');
-                header.classList.add('message-header', `header-for-speaker-${speaker.id}`);
-                header.textContent = speaker.name;
-                messagesContainer.appendChild(header); // 말풍선 뒤에 추가
-            }
-            
-            // 7. 멀티라인 입력을 위해 content-div 반환
-            return content;
-        }
-
-        // --- sendMessage 함수 ---
-        function sendMessage() {
-            const text = input.value.trim();
-            
-            if (text === "") return;
-
-            const speakerId = getCurrentSpeakerId();
-            const speaker = speakers.find(s => s.id === speakerId);
-            
-            if (!speaker) return;
-            
-            addMessageToDOM(speaker, text);
-            
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-            input.value = '';
-            input.focus();
-        }
-
-        // 붙여넣기(paste) 핸들러
-        function handlePaste(event) {
-            event.preventDefault(); 
-            
-            const pastedText = event.clipboardData.getData('text');
-            const lines = pastedText.split('\n');
-            
-            // [수정된 정규식]
-            // ^\[?    : (선택사항) 줄 시작 시 '['
-            // (.+?)  : (캡처 1) 이름 (최소한으로 매칭)
-            // \]?\s+   : (선택사항) ']'가 오고, 뒤에 공백 1개 이상
-            // \[.+?\]\s+: (필수) [타임스탬프] 형식과 공백
-            // (.+)   : (캡처 2) 나머지 메시지 전체
-            const regex = /^\[?(.+?)\]?\s+\[.+?\]\s+(.+)$/;
-            
-            let lastMessageContentElement = null; 
-            let unfoundSpeakers = new Set(); 
-
-            lines.forEach(line => {
-                const trimmedLine = line.trim();
-                if (trimmedLine === "") return; 
-
-                const match = trimmedLine.match(regex);
-
-                if (match) {
-                    // [수정] 
-                    // match[1]은 대괄호가 있든 없든 순수한 '이름'만 캡처합니다.
-                    const speakerName = match[1].trim(); 
-                    const messageText = match[2].trim();
-                    
-                    const speaker = speakers.find(s => s.name === speakerName);
-
-                    if (speaker) {
-                        lastMessageContentElement = addMessageToDOM(speaker, messageText);
-                    } else {
-                        unfoundSpeakers.add(speakerName);
-                        lastMessageContentElement = null; 
-                    }
-                } else if (lastMessageContentElement) {
-                    // 정규식에 맞지 않는 줄 (아마도 멀티라인 메시지)
-                    lastMessageContentElement.textContent += '\n' + trimmedLine;
-                } else {
-                    // 정규식에도 맞지 않고, 멀티라인도 아닌 경우 (예: 시스템 메시지)
-                    console.warn("Skipping unparsable line:", trimmedLine);
-                }
-            });
-
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
-            if (unfoundSpeakers.size > 0) {
-                alert(`다음 발화자를 찾을 수 없어 일부 메시지를 추가하지 못했습니다:\n${[...unfoundSpeakers].join(', ')}\n\n'발화자 추가' 또는 '이름 변경' 기능을 이용해 로그와 동일한 이름으로 설정해주세요.`);
-            }
-        }
-        
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
-                sendMessage();
-            }
-        }
-
-        function copyMessagesAsHtml() {
-            // .message-header도 포함하는 것은 이전과 동일
-            const messages = messagesContainer.querySelectorAll('.message, .system-message, .message-header');
-            let messagesHtml = '';
-
-            messages.forEach(msg => {
-                const classes = Array.from(msg.classList).join(' ');
-                const innerHtml = msg.innerHTML;
-                messagesHtml += `<div class="${classes}">${innerHtml}</div>\n`;
-            });
-
-            const chatStyles = styleTag.innerHTML;
-            
-            const fullHtmlContent = `<!DOCTYPE html>
+        const out = `<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <title>DM 백업</title>
     <style>
-        /* 대화창 스타일 */
-        ${chatStyles}
+${fixedStaticCss}
+${speakerCss}
     </style>
 </head>
 <body class="backup-body">
     <div class="chat-container">
         <div class="messages">
-${messagesHtml}
+${html}
         </div>
     </div>
 </body>
 </html>`;
 
-            navigator.clipboard.writeText(fullHtmlContent)
-                .then(() => {
-                    alert('대화 내용이 스타일이 포함된 완전한 HTML 파일 코드로 복사되었습니다. T텍스트 파일에 붙여넣고 ".html"로 저장하여 확인해보세요.');
-                })
-                .catch(err => {
-                    console.error('클립보드 복사 실패:', err);
-                    alert('클립보드 복사에 실패했습니다. 콘솔을 확인하세요. (브라우저 보안 문제일 수 있습니다.)');
-                });
+        navigator.clipboard.writeText(out)
+            .then(() => showToast('HTML 복사 완료!'))
+            .catch(() => showToast('복사 실패 — 브라우저 설정을 확인해주세요.'));
+    }
+
+    // ── PNG 저장 ──────────────────────────────────────
+    // [수정 8] 캡처 대상을 messages-container(메시지 영역만)로 변경
+    function exportPng() {
+        if (!messagesContainer.querySelector('.message')) {
+            showToast('저장할 메시지가 없습니다.'); return;
         }
-        
-        // 페이지 로드 시 초기화
-        updateStyles();
-        updateSpeakerDropdown();
-        // [중요] input에 paste 이벤트 리스너 연결
-        input.addEventListener('paste', handlePaste);
-    </script>
+        pngLoading.classList.add('show');
+        setTimeout(() => {
+            html2canvas(messagesContainer, { // [수정 8]
+                backgroundColor: '#ffffff',
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                removeContainer: true
+            }).then(canvas => {
+                pngLoading.classList.remove('show');
+                const link = document.createElement('a');
+                link.download = `DM_백업_${new Date().toISOString().slice(0, 10)}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast('PNG 저장 완료!');
+            }).catch(err => {
+                pngLoading.classList.remove('show');
+                console.error(err);
+                showToast('PNG 저장 실패 — 콘솔을 확인해주세요.');
+            });
+        }, 60);
+    }
+
+    // ── 백업 파일 불러오기 ────────────────────────────
+    function loadBackupFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(e.target.result, 'text/html');
+
+            // 백업 HTML에서 메시지 요소들 추출
+            const msgEls = doc.querySelectorAll('.messages > *');
+            if (!msgEls.length) {
+                showToast('메시지를 찾을 수 없습니다. 올바른 백업 파일인지 확인해주세요.');
+                return;
+            }
+
+            // 기존 메시지 제거
+            Array.from(messagesContainer.children).forEach(el => {
+                if (el.id !== 'empty-state') messagesContainer.removeChild(el);
+            });
+
+            // 백업에서 발화자 색상 CSS 파싱 후 CSS 변수로 적용
+            const styleEls = doc.querySelectorAll('style');
+            styleEls.forEach(style => {
+                const text = style.textContent;
+                // .speaker-N { ... background-color: #xxx; ... } 패턴 추출
+                const bgRe = /\.speaker-(\d+)\s*\{[^}]*background-color:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))/g;
+                let m;
+                while ((m = bgRe.exec(text)) !== null) {
+                    document.documentElement.style.setProperty(`--speaker-${m[1]}-bubble`, m[2]);
+                }
+                // .header-for-speaker-N { ... color: #xxx; ... } 패턴 추출
+                const nameRe = /\.header-for-speaker-(\d+)\s*\{[^}]*color:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))/g;
+                while ((m = nameRe.exec(text)) !== null) {
+                    document.documentElement.style.setProperty(`--speaker-${m[1]}-name`, m[2]);
+                }
+            });
+
+            // 메시지 요소 삽입
+            msgEls.forEach(el => {
+                const clone = el.cloneNode(true);
+                clone.querySelectorAll('.msg-actions').forEach(a => a.remove()); // 이전 액션 버튼 제거
+                messagesContainer.appendChild(clone);
+            });
+
+            // 불러온 메시지에 편집 기능 부착
+            messagesContainer.querySelectorAll('.message').forEach(msgEl => {
+                const imgEl  = msgEl.querySelector('img.msg-image, img');
+                if (imgEl) {
+                    imgEl.classList.add('msg-image');
+                    imgEl.addEventListener('click', () => openLightbox(imgEl.src));
+                    attachMessageActions(msgEl, null);
+                } else {
+                    const textEl = msgEl.querySelector('div:not(.msg-actions)') || msgEl.firstElementChild;
+                    if (textEl) {
+                        textEl.classList.add('msg-text');
+                        attachMessageActions(msgEl, textEl);
+                    }
+                }
+            });
+
+            syncEmptyState();
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            showToast(`백업 파일을 불러왔습니다. (메시지 ${messagesContainer.querySelectorAll('.message').length}개)`);
+        };
+        reader.readAsText(file, 'UTF-8');
+    }
+
+    // ── 이벤트 바인딩 ─────────────────────────────────
+    document.getElementById('add-speaker-btn').addEventListener('click',  addSpeaker);
+    document.getElementById('change-name-btn').addEventListener('click',  changeSpeakerName);
+    document.getElementById('copy-html-btn').addEventListener('click',    copyMessagesAsHtml);
+    document.getElementById('export-png-btn').addEventListener('click',   exportPng);
+    document.getElementById('clear-btn').addEventListener('click',        clearMessages); // [수정 6]
+    document.getElementById('send-btn').addEventListener('click',         sendMessage);
+    document.getElementById('load-backup-btn').addEventListener('click',  () => document.getElementById('load-backup-input').click());
+    document.getElementById('load-backup-input').addEventListener('change', e => { loadBackupFile(e.target.files[0]); e.target.value = ''; });
+    document.getElementById('img-upload-btn').addEventListener('click',   () => document.getElementById('img-upload-input').click());
+    document.getElementById('img-upload-input').addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const s = speakers.find(s => s.id === getCurrentSpeakerId());
+            if (s) { addImageToDOM(s, ev.target.result); messagesContainer.scrollTop = messagesContainer.scrollHeight; }
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    });
+    document.getElementById('img-lightbox').addEventListener('click', () => {
+        document.getElementById('img-lightbox').classList.remove('show');
+    });
+    speakerSelect.addEventListener('change',    () => { loadSpeakerSettings(); updateSpeakerChips(); });
+    bubbleColorInput.addEventListener('input',  () => updateSpeakerColor('bubble'));
+    nameColorInput.addEventListener('input',    () => updateSpeakerColor('name'));
+    messageInput.addEventListener('keypress',   e => { if (e.key === 'Enter') sendMessage(); });
+    messageInput.addEventListener('paste',      handlePaste);
+
+    // ── 초기화 ────────────────────────────────────────
+    initLogTabs();
+    updateDynamicStyles();
+    applyCssVariables();
+    updateSpeakerDropdown();
+    syncEmptyState();
+</script>
 </body>
 </html>
->>>>>>> 2e7fbe7660bb2130b381392b81c8954b27d34bed
