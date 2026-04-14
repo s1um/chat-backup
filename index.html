@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>DM 백업</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -350,6 +351,41 @@
         }
         #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+        /* 패널 토글 버튼 (모바일 전용) */
+        #panel-toggle-btn {
+            display: none;
+            width: 32px; height: 32px; flex-shrink: 0; margin-left: auto;
+            border: none; border-radius: 8px;
+            background: var(--accent-lite); color: var(--accent);
+            cursor: pointer; align-items: center; justify-content: center;
+            transition: background var(--ease);
+        }
+        #panel-toggle-btn:hover { background: rgba(99,102,241,0.18); }
+        #panel-toggle-btn svg { width: 16px; height: 16px; }
+
+        /* 패널 닫기 버튼 (모바일 전용) */
+        #panel-close-btn {
+            display: none;
+            width: 28px; height: 28px; flex-shrink: 0; margin-left: auto;
+            border: none; border-radius: 6px;
+            background: transparent; color: var(--text-3);
+            cursor: pointer; align-items: center; justify-content: center;
+            transition: background var(--ease), color var(--ease);
+        }
+        #panel-close-btn:hover { background: var(--bg-hover); color: var(--text-1); }
+        #panel-close-btn svg { width: 16px; height: 16px; }
+
+        /* 모바일 오버레이 */
+        #panel-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+            z-index: 99;
+            animation: fadeIn 0.2s ease;
+        }
+        #panel-overlay.show { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
         /* 메시지 인라인 편집 */
         .message { position: relative; overflow: visible; }
         .msg-actions {
@@ -387,8 +423,46 @@
         .message.editing { z-index: 5; }
 
         @media (max-width: 640px) {
-            .ctrl-pane { display: none; }
-            .workspace { max-width: 100%; border-radius: var(--r-lg); }
+            body { padding: 0; align-items: stretch; }
+
+            .workspace {
+                height: 100vh; height: 100dvh;
+                border-radius: 0; border: none; box-shadow: none;
+                max-width: 100%;
+            }
+
+            /* 채팅 패널 */
+            .chat-pane { border-right: none; }
+            .chat-header { padding: 12px 14px; }
+
+            /* 설정 버튼 표시 */
+            #panel-toggle-btn { display: flex; }
+
+            /* 컨트롤 패널: 오른쪽에서 슬라이드 인 */
+            .ctrl-pane {
+                position: fixed;
+                top: 0; right: 0; bottom: 0;
+                width: 86%; max-width: 320px;
+                transform: translateX(100%);
+                transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+                z-index: 100;
+                box-shadow: -6px 0 24px rgba(0,0,0,0.14);
+                /* safe area (노치 대응) */
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+            .ctrl-pane.open { transform: translateX(0); }
+            #panel-close-btn { display: flex; }
+            .panel-header { display: flex; align-items: center; }
+
+            /* 메시지 영역 */
+            .messages { padding: 12px 10px; }
+            .message { font-size: 14px; max-width: 80%; }
+            .msg-image { max-width: 180px; }
+
+            /* 입력 바 */
+            .chat-input-bar { padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+            #message-input { font-size: 16px; /* iOS 줌 방지 */ }
+            #send-btn, #img-upload-btn { width: 38px; height: 38px; }
         }
     </style>
 
@@ -410,6 +484,12 @@
                 <div class="chat-header-title">DM 백업</div>
                 <div class="chat-header-sub">메시지를 입력하거나 로그를 붙여넣으세요</div>
             </div>
+            <button id="panel-toggle-btn" title="설정 열기">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+            </button>
         </div>
 
         <div class="messages" id="messages-container">
@@ -443,6 +523,11 @@
     <div class="ctrl-pane">
         <div class="panel-header">
             <div class="panel-title">컨트롤 패널</div>
+            <button id="panel-close-btn" title="닫기">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
         </div>
 
         <!-- ① 로그 종류 -->
@@ -537,6 +622,9 @@
         </div>
     </div>
 </div>
+
+<!-- 모바일 패널 오버레이 -->
+<div id="panel-overlay"></div>
 
 <!-- 이미지 라이트박스 -->
 <div id="img-lightbox"><img id="img-lightbox-img" src="" alt=""></div>
@@ -1330,6 +1418,25 @@ ${html}
     nameColorInput.addEventListener('input',    () => updateSpeakerColor('name'));
     messageInput.addEventListener('keypress',   e => { if (e.key === 'Enter') sendMessage(); });
     messageInput.addEventListener('paste',      handlePaste);
+
+    // ── 모바일 패널 드로어 ────────────────────────────
+    const ctrlPane      = document.querySelector('.ctrl-pane');
+    const panelOverlay  = document.getElementById('panel-overlay');
+
+    function openPanel() {
+        ctrlPane.classList.add('open');
+        panelOverlay.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+    function closePanel() {
+        ctrlPane.classList.remove('open');
+        panelOverlay.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    document.getElementById('panel-toggle-btn').addEventListener('click', openPanel);
+    document.getElementById('panel-close-btn').addEventListener('click', closePanel);
+    panelOverlay.addEventListener('click', closePanel);
 
     // ── 초기화 ────────────────────────────────────────
     initLogTabs();
