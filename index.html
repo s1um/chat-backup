@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>DM 백업</title>
+    <title>썰 백업</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -150,11 +150,17 @@
             flex: 1;
             background: var(--bg-input);
             border: 1px solid var(--border-md);
-            border-radius: 999px;
+            border-radius: var(--r-md);
             color: var(--text-1);
             font-family: var(--font); font-size: 13px;
             padding: 8px 15px; outline: none;
             transition: border-color var(--ease);
+            resize: none;
+            min-height: 36px;
+            max-height: 120px;
+            overflow-y: auto;
+            line-height: 1.5;
+            display: block;
         }
         #message-input::placeholder { color: var(--text-3); }
         #message-input:focus { border-color: var(--border-focus); }
@@ -317,6 +323,19 @@
             transition: background var(--ease), color var(--ease);
         }
         .chip-del:hover { background: var(--red-lite); color: var(--red); }
+        /* 발화자명 표시 토글 버튼 */
+        .chip-name-toggle {
+            width: 16px; height: 16px;
+            border: none; border-radius: 50%;
+            background: transparent; color: var(--text-3);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; padding: 0;
+            transition: background var(--ease), color var(--ease);
+        }
+        .chip-name-toggle:hover { background: var(--accent-lite); color: var(--accent); }
+        .chip-name-toggle.hidden { color: var(--text-3); opacity: 0.45; }
+        .chip-name-toggle svg { width: 11px; height: 11px; }
 
         /* PNG 변환 오버레이 */
         #png-loading {
@@ -461,7 +480,7 @@
 
             /* 입력 바 */
             .chat-input-bar { padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
-            #message-input { font-size: 16px; /* iOS 줌 방지 */ }
+            #message-input { font-size: 16px; /* iOS 줌 방지 */ border-radius: var(--r-sm); }
             #send-btn, #img-upload-btn { width: 38px; height: 38px; }
         }
     </style>
@@ -502,7 +521,7 @@
         </div>
 
         <div class="chat-input-bar">
-            <input type="text" id="message-input" placeholder="메시지를 입력하세요…">
+            <textarea id="message-input" rows="1" placeholder="메시지를 입력하세요…"></textarea>
             <input type="file" id="img-upload-input" accept="image/*" style="display:none">
             <button id="img-upload-btn" title="이미지 첨부">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -569,6 +588,10 @@
                 <div class="swatch-item">
                     <input type="color" id="bubble-color-input" title="말풍선 색상">
                     <span class="swatch-label">말풍선</span>
+                </div>
+                <div class="swatch-item">
+                    <input type="color" id="text-color-input" title="글자 색상">
+                    <span class="swatch-label">글자</span>
                 </div>
                 <div class="swatch-item" id="name-color-group">
                     <input type="color" id="name-color-input" title="이름 색상">
@@ -666,8 +689,8 @@
     // ── 상태 ──────────────────────────────────────────
     // [수정 9] align 속성을 updateDynamicStyles에서 실제 참조하므로 유지
     let speakers = [
-        { id: 0, name: "나",       color: "#6366f1", align: "flex-end",   name_color: null },
-        { id: 1, name: "상대방 A", color: "#e5e7eb", align: "flex-start", name_color: "#6b7280" }
+        { id: 0, name: "나",       color: "#6366f1", align: "flex-end",   name_color: null,      showName: true, text_color: "#ffffff" },
+        { id: 1, name: "상대방 A", color: "#e5e7eb", align: "flex-start", name_color: "#6b7280", showName: true, text_color: "#111827" }
     ];
     let nextSpeakerId = 2;
 
@@ -678,6 +701,7 @@
     const speakerChipList   = document.getElementById('speaker-chip-list');
     const newNameInput      = document.getElementById('new-name-input');
     const bubbleColorInput  = document.getElementById('bubble-color-input');
+    const textColorInput    = document.getElementById('text-color-input');
     const nameColorInput    = document.getElementById('name-color-input');
     const nameColorGroup    = document.getElementById('name-color-group');
     const messageInput      = document.getElementById('message-input');
@@ -737,18 +761,19 @@
         for (const s of speakers) {
             if (s.id === 0) {
                 css += `
-                    .speaker-${s.id} { align-self: ${s.align}; background-color: var(--speaker-${s.id}-bubble); color: #fff; }
+                    .speaker-${s.id} { align-self: ${s.align}; background-color: var(--speaker-${s.id}-bubble); color: var(--speaker-${s.id}-text); }
                     .speaker-${s.id}.is-last-message { border-bottom-right-radius: 3px; margin-bottom: 4px; }
                 `;
             } else {
                 css += `
-                    .speaker-${s.id} { align-self: ${s.align}; background-color: var(--speaker-${s.id}-bubble); color: var(--text-1); }
+                    .speaker-${s.id} { align-self: ${s.align}; background-color: var(--speaker-${s.id}-bubble); color: var(--speaker-${s.id}-text); }
                     .speaker-${s.id}.is-last-message { border-bottom-left-radius: 3px; margin-bottom: 0; }
                     .header-for-speaker-${s.id} {
                         align-self: ${s.align};
                         color: var(--speaker-${s.id}-name);
                         font-size: 10px; font-weight: 600;
                         margin-left: 3px; margin-top: 2px; margin-bottom: 3px; letter-spacing: 0.2px;
+                        display: ${s.showName === false ? 'none' : 'block'};
                     }
                 `;
             }
@@ -759,6 +784,7 @@
     function applyCssVariables() {
         for (const s of speakers) {
             document.documentElement.style.setProperty(`--speaker-${s.id}-bubble`, s.color);
+            document.documentElement.style.setProperty(`--speaker-${s.id}-text`, s.text_color || (s.id === 0 ? '#ffffff' : '#111827'));
             if (s.name_color) document.documentElement.style.setProperty(`--speaker-${s.id}-name`, s.name_color);
         }
     }
@@ -788,8 +814,22 @@
 
             chip.append(dot, name, tag);
 
-            // [수정 7] 기본 발화자(id=0)가 아닐 때만 삭제 버튼 표시
+            // [수정 7] 기본 발화자(id=0)가 아닐 때만 이름 토글 및 삭제 버튼 표시
             if (s.id !== 0) {
+                const toggle = document.createElement('button');
+                toggle.className = 'chip-name-toggle' + (s.showName === false ? ' hidden' : '');
+                toggle.title = s.showName === false ? '발화자명 표시' : '발화자명 숨김';
+                toggle.innerHTML = s.showName === false
+                    ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
+                    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+                toggle.addEventListener('click', e => {
+                    e.stopPropagation();
+                    s.showName = s.showName === false ? true : false;
+                    updateDynamicStyles();
+                    updateSpeakerChips();
+                });
+                chip.appendChild(toggle);
+
                 const del = document.createElement('button');
                 del.className = 'chip-del';
                 del.title = '발화자 삭제';
@@ -815,6 +855,7 @@
         speakers = speakers.filter(s => s.id !== id);
         // CSS 변수 제거
         document.documentElement.style.removeProperty(`--speaker-${id}-bubble`);
+        document.documentElement.style.removeProperty(`--speaker-${id}-text`);
         document.documentElement.style.removeProperty(`--speaker-${id}-name`);
         updateDynamicStyles();
         applyCssVariables();
@@ -844,7 +885,8 @@
         const s  = speakers.find(s => s.id === id);
         if (!s) return;
         newNameInput.value     = s.name;
-        bubbleColorInput.value = s.color; // [수정 1] 항상 hex → 그대로 사용
+        bubbleColorInput.value = s.color;
+        textColorInput.value   = s.text_color || (s.id === 0 ? '#ffffff' : '#111827');
         if (s.id === 0) {
             nameColorGroup.style.visibility = 'hidden';
         } else {
@@ -861,6 +903,9 @@
             s.color = bubbleColorInput.value;
             document.documentElement.style.setProperty(`--speaker-${id}-bubble`, s.color);
             updateSpeakerChips();
+        } else if (type === 'text') {
+            s.text_color = textColorInput.value;
+            document.documentElement.style.setProperty(`--speaker-${id}-text`, s.text_color);
         } else if (type === 'name' && s.id !== 0) {
             s.name_color = nameColorInput.value;
             document.documentElement.style.setProperty(`--speaker-${id}-name`, s.name_color);
@@ -873,7 +918,7 @@
     function addSpeaker() {
         const newId  = nextSpeakerId++;
         const colors = getAutoColor(newId); // [수정 1] 이제 hex 반환
-        const newS   = { id: newId, name: `상대방 ${speakers.length}`, color: colors.bg, align: 'flex-start', name_color: colors.name };
+        const newS   = { id: newId, name: `상대방 ${speakers.length}`, color: colors.bg, align: 'flex-start', name_color: colors.name, showName: true, text_color: "#111827" };
         speakers.push(newS);
         updateDynamicStyles(); applyCssVariables();
         updateSpeakerDropdown();
@@ -1105,6 +1150,7 @@
         addMessageToDOM(s, text);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
         messageInput.value = '';
+        messageInput.style.height = 'auto';
         messageInput.focus();
     }
 
@@ -1259,11 +1305,11 @@
         for (const s of speakers) {
             if (s.id === 0) {
                 speakerCss += `
-                        .speaker-0 { align-self: flex-end; background-color: ${s.color}; color: #ffffff; }
+                        .speaker-0 { align-self: flex-end; background-color: ${s.color}; color: ${s.text_color || '#ffffff'}; }
                         .speaker-0.is-last-message { border-bottom-right-radius: 2px; margin-bottom: 5px; }`;
             } else {
                 speakerCss += `
-                        .speaker-${s.id} { align-self: flex-start; background-color: ${s.color}; color: #050505; }
+                        .speaker-${s.id} { align-self: flex-start; background-color: ${s.color}; color: ${s.text_color || '#111827'}; }
                         .header-for-speaker-${s.id} { align-self: flex-start; color: ${s.name_color || '#536471'}; margin-left: 5px; margin-top: 2px; margin-bottom: 5px; }
                         .speaker-${s.id}.is-last-message { border-bottom-left-radius: 2px; margin-bottom: 0px; }`;
             }
@@ -1415,8 +1461,18 @@ ${html}
     });
     speakerSelect.addEventListener('change',    () => { loadSpeakerSettings(); updateSpeakerChips(); });
     bubbleColorInput.addEventListener('input',  () => updateSpeakerColor('bubble'));
+    textColorInput.addEventListener('input',    () => updateSpeakerColor('text'));
     nameColorInput.addEventListener('input',    () => updateSpeakerColor('name'));
-    messageInput.addEventListener('keypress',   e => { if (e.key === 'Enter') sendMessage(); });
+    messageInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    messageInput.addEventListener('input', () => {
+        messageInput.style.height = 'auto';
+        messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+    });
     messageInput.addEventListener('paste',      handlePaste);
 
     // ── 모바일 패널 드로어 ────────────────────────────
