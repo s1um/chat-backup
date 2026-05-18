@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>썰 백업</title>
+    <title>DM 백업</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style id="static-styles">
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
 
         :root {
             --bg-page:       #f0f2f5;
@@ -151,17 +150,11 @@
             flex: 1;
             background: var(--bg-input);
             border: 1px solid var(--border-md);
-            border-radius: var(--r-md);
+            border-radius: 999px;
             color: var(--text-1);
             font-family: var(--font); font-size: 13px;
             padding: 8px 15px; outline: none;
             transition: border-color var(--ease);
-            resize: none;
-            min-height: 36px;
-            max-height: 120px;
-            overflow-y: auto;
-            line-height: 1.5;
-            display: block;
         }
         #message-input::placeholder { color: var(--text-3); }
         #message-input:focus { border-color: var(--border-focus); }
@@ -324,19 +317,6 @@
             transition: background var(--ease), color var(--ease);
         }
         .chip-del:hover { background: var(--red-lite); color: var(--red); }
-        /* 발화자명 표시 토글 버튼 */
-        .chip-name-toggle {
-            width: 16px; height: 16px;
-            border: none; border-radius: 50%;
-            background: transparent; color: var(--text-3);
-            cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0; padding: 0;
-            transition: background var(--ease), color var(--ease);
-        }
-        .chip-name-toggle:hover { background: var(--accent-lite); color: var(--accent); }
-        .chip-name-toggle.hidden { color: var(--text-3); opacity: 0.45; }
-        .chip-name-toggle svg { width: 11px; height: 11px; }
 
         /* PNG 변환 오버레이 */
         #png-loading {
@@ -556,8 +536,7 @@
             <div class="log-type-tabs">
                 <button class="log-tab active" data-type="kakao">카카오톡</button>
                 <button class="log-tab" data-type="twitter">트위터 DM</button>
-                <button class="log-tab" data-type="band">밴드 채팅</button>
-                <button class="log-tab" data-type="band_comment">밴드 댓글</button>
+                <button class="log-tab" data-type="band">밴드</button>
             </div>
             <div class="log-hint" id="log-hint"></div>
         </div>
@@ -675,14 +654,10 @@
             timeRe:     /^(오전|오후)\s+\d{1,2}:\d{2}$/
         },
         band: {
-            label: '밴드 채팅',
+            label: '밴드',
             hint: `<b>형식 A:</b> 이름(단독 줄) → 메시지 줄<br><b>형식 B:</b> <code>yyyy.mm.dd hh:mm 이름</code> → 메시지 줄<br>두 형식 모두 지원합니다.`,
             timeRe:     /\s*\d{1,2}:\d{2}$/,
             dateLineRe: /^\d{4}\.\d{2}\.\d{2}\s+\d{1,2}:\d{2}\s+(.+)$/
-        },
-        band_comment: {
-            label: '밴드 댓글',
-            hint: `<b>형식:</b> 이름 → 내용 <br>밴드 게시글 댓글을 그대로 붙여넣으세요.`
         }
     };
 
@@ -1202,45 +1177,6 @@
                 pendingMsgs.push(t);
             });
             flushMsgs();
-
-        } else if (currentLogType === 'band_comment') {
-            const UI_SKIP = new Set(['표정짓기', '답글쓰기', '댓글 수정', '댓글']);
-            // -월 -일 오전/오후 --:-- 형식의 날짜 줄
-            const isDateLine = t => /^\d{1,2}월\s+\d{1,2}일\s+(오전|오후)\s+\d{1,2}:\d{2}/.test(t);
-            const isUISkip = t => UI_SKIP.has(t) || /^멤버/.test(t);
-
-            // 0=이름, 1=한줄소개(위치로 skip), 2=내용 누적, 3=꼬리 skip
-            let state = 0;
-            let currentName = null;
-            let contentLines = [];
-
-            const flushContent = () => {
-                if (currentName && contentLines.length > 0)
-                    results.push({ speakerName: currentName, text: contentLines.join('\n') });
-                currentName = null;
-                contentLines = [];
-            };
-
-            for (const line of lines) {
-                const t = line.trim();
-                if (!t) continue;
-
-                // 날짜 줄 → 내용 확정 후 꼬리로 전환
-                if (isDateLine(t)) {
-                    if (state === 2) flushContent();
-                    state = 3;
-                    continue;
-                }
-
-                if (isUISkip(t)) continue;
-
-                if (state === 3) state = 0; // 꼬리 종료 → 새 블록
-
-                if (state === 0)      { currentName = t; state = 1; }
-                else if (state === 1) { state = 2; }           // 한줄 소개 → 위치로 skip
-                else if (state === 2) { contentLines.push(t); }
-            }
-            if (state === 2) flushContent();
 
         } else if (currentLogType === 'band') {
             const { timeRe, dateLineRe } = LOG_TYPES.band;
