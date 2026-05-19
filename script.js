@@ -28,8 +28,8 @@ let currentLogType = 'kakao';
 
 // ── 상태 ──────────────────────────────────────────
 let speakers = [
-    { id: 0, name: "나",       color: "#6366f1", align: "flex-end",   name_color: null },
-    { id: 1, name: "상대방 A", color: "#e5e7eb", align: "flex-start", name_color: "#6b7280" }
+    { id: 0, name: "나",       color: "#6366f1", align: "flex-end",   name_color: null,      text_color: "#ffffff" },
+    { id: 1, name: "상대방 A", color: "#e5e7eb", align: "flex-start", name_color: "#6b7280", text_color: "#111827", show_name: true }
 ];
 let nextSpeakerId = 2;
 
@@ -40,6 +40,7 @@ const speakerSelect     = document.getElementById('speaker-select');
 const speakerChipList   = document.getElementById('speaker-chip-list');
 const newNameInput      = document.getElementById('new-name-input');
 const bubbleColorInput  = document.getElementById('bubble-color-input');
+const textColorInput    = document.getElementById('text-color-input');
 const nameColorInput    = document.getElementById('name-color-input');
 const nameColorGroup    = document.getElementById('name-color-group');
 const messageInput      = document.getElementById('message-input');
@@ -97,12 +98,12 @@ function updateDynamicStyles() {
     for (const s of speakers) {
         if (s.id === 0) {
             css += `
-                .speaker-${s.id} { align-self: ${s.align}; background-color: var(--speaker-${s.id}-bubble); color: #fff; }
+                .speaker-${s.id} { align-self: ${s.align}; background-color: var(--speaker-${s.id}-bubble); color: var(--speaker-${s.id}-text); }
                 .speaker-${s.id}.is-last-message { border-bottom-right-radius: 3px; margin-bottom: 4px; }
             `;
         } else {
             css += `
-                .speaker-${s.id} { align-self: ${s.align}; background-color: var(--speaker-${s.id}-bubble); color: var(--text-1); }
+                .speaker-${s.id} { align-self: ${s.align}; background-color: var(--speaker-${s.id}-bubble); color: var(--speaker-${s.id}-text); }
                 .speaker-${s.id}.is-last-message { border-bottom-left-radius: 3px; margin-bottom: 0; }
                 .header-for-speaker-${s.id} {
                     align-self: ${s.align};
@@ -119,6 +120,7 @@ function updateDynamicStyles() {
 function applyCssVariables() {
     for (const s of speakers) {
         document.documentElement.style.setProperty(`--speaker-${s.id}-bubble`, s.color);
+        document.documentElement.style.setProperty(`--speaker-${s.id}-text`, s.text_color || (s.id === 0 ? '#ffffff' : '#111827'));
         if (s.name_color) document.documentElement.style.setProperty(`--speaker-${s.id}-name`, s.name_color);
     }
 }
@@ -147,6 +149,17 @@ function updateSpeakerChips() {
         chip.append(dot, name, tag);
 
         if (s.id !== 0) {
+            const toggle = document.createElement('button');
+            toggle.className = 'chip-name-toggle' + (s.show_name ? '' : ' hidden');
+            toggle.title = s.show_name ? '이름 숨기기' : '이름 표시';
+            toggle.innerHTML = s.show_name
+                ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+                : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+            toggle.addEventListener('click', e => {
+                e.stopPropagation();
+                toggleSpeakerName(s.id);
+            });
+
             const del = document.createElement('button');
             del.className = 'chip-del';
             del.title = '발화자 삭제';
@@ -155,7 +168,7 @@ function updateSpeakerChips() {
                 e.stopPropagation();
                 deleteSpeaker(s.id);
             });
-            chip.appendChild(del);
+            chip.append(toggle, del);
         }
 
         chip.addEventListener('click', () => {
@@ -167,9 +180,18 @@ function updateSpeakerChips() {
     });
 }
 
+function toggleSpeakerName(id) {
+    const s = speakers.find(s => s.id === id);
+    if (!s) return;
+    s.show_name = !s.show_name;
+    updateSpeakerChips();
+    rebuildMessageHeaders();
+}
+
 function deleteSpeaker(id) {
     speakers = speakers.filter(s => s.id !== id);
     document.documentElement.style.removeProperty(`--speaker-${id}-bubble`);
+    document.documentElement.style.removeProperty(`--speaker-${id}-text`);
     document.documentElement.style.removeProperty(`--speaker-${id}-name`);
     updateDynamicStyles();
     applyCssVariables();
@@ -198,6 +220,7 @@ function loadSpeakerSettings() {
     if (!s) return;
     newNameInput.value     = s.name;
     bubbleColorInput.value = s.color;
+    textColorInput.value   = s.text_color || (s.id === 0 ? '#ffffff' : '#111827');
     if (s.id === 0) {
         nameColorGroup.style.visibility = 'hidden';
     } else {
@@ -214,6 +237,9 @@ function updateSpeakerColor(type) {
         s.color = bubbleColorInput.value;
         document.documentElement.style.setProperty(`--speaker-${id}-bubble`, s.color);
         updateSpeakerChips();
+    } else if (type === 'text') {
+        s.text_color = textColorInput.value;
+        document.documentElement.style.setProperty(`--speaker-${id}-text`, s.text_color);
     } else if (type === 'name' && s.id !== 0) {
         s.name_color = nameColorInput.value;
         document.documentElement.style.setProperty(`--speaker-${id}-name`, s.name_color);
@@ -226,7 +252,7 @@ function getCurrentSpeakerId() { return parseInt(speakerSelect.value, 10); }
 function addSpeaker() {
     const newId  = nextSpeakerId++;
     const colors = getAutoColor(newId);
-    const newS   = { id: newId, name: `상대방 ${speakers.length}`, color: colors.bg, align: 'flex-start', name_color: colors.name };
+    const newS   = { id: newId, name: `상대방 ${speakers.length}`, color: colors.bg, align: 'flex-start', name_color: colors.name, text_color: '#111827', show_name: true };
     speakers.push(newS);
     updateDynamicStyles(); applyCssVariables();
     updateSpeakerDropdown();
@@ -288,7 +314,7 @@ function addMessageToDOM(speaker, text) {
     attachMessageActions(div, content);
     messagesContainer.appendChild(div);
 
-    if (speaker.id !== 0) {
+    if (speaker.id !== 0 && speaker.show_name !== false) {
         const hdr = document.createElement('div');
         hdr.classList.add('message-header', `header-for-speaker-${speaker.id}`);
         hdr.textContent = speaker.name;
@@ -326,7 +352,7 @@ function addImageToDOM(speaker, src) {
     attachMessageActions(div, null);
     messagesContainer.appendChild(div);
 
-    if (speaker.id !== 0) {
+    if (speaker.id !== 0 && speaker.show_name !== false) {
         const hdr = document.createElement('div');
         hdr.classList.add('message-header', `header-for-speaker-${speaker.id}`);
         hdr.textContent = speaker.name;
@@ -437,10 +463,12 @@ function rebuildMessageHeaders() {
             const sid = sc ? parseInt(sc.replace('speaker-', '')) : null;
             if (sid !== null && sid !== 0) {
                 const sp = speakers.find(s => s.id === sid);
-                const hdr = document.createElement('div');
-                hdr.classList.add('message-header', `header-for-speaker-${sid}`);
-                hdr.textContent = sp ? sp.name : '';
-                msg.after(hdr);
+                if (sp && sp.show_name !== false) {
+                    const hdr = document.createElement('div');
+                    hdr.classList.add('message-header', `header-for-speaker-${sid}`);
+                    hdr.textContent = sp.name;
+                    msg.after(hdr);
+                }
             }
         }
     });
@@ -630,11 +658,11 @@ function copyMessagesAsHtml() {
     for (const s of speakers) {
         if (s.id === 0) {
             speakerCss += `
-                    .speaker-0 { align-self: flex-end; background-color: ${s.color}; color: #ffffff; }
+                    .speaker-0 { align-self: flex-end; background-color: ${s.color}; color: ${s.text_color || '#ffffff'}; }
                     .speaker-0.is-last-message { border-bottom-right-radius: 2px; margin-bottom: 5px; }`;
         } else {
             speakerCss += `
-                    .speaker-${s.id} { align-self: flex-start; background-color: ${s.color}; color: #050505; }
+                    .speaker-${s.id} { align-self: flex-start; background-color: ${s.color}; color: ${s.text_color || '#050505'}; }
                     .header-for-speaker-${s.id} { align-self: flex-start; color: ${s.name_color || '#536471'}; margin-left: 5px; margin-top: 2px; margin-bottom: 5px; }
                     .speaker-${s.id}.is-last-message { border-bottom-left-radius: 2px; margin-bottom: 0px; }`;
         }
@@ -778,6 +806,7 @@ document.getElementById('img-lightbox').addEventListener('click', () => {
 });
 speakerSelect.addEventListener('change',    () => { loadSpeakerSettings(); updateSpeakerChips(); });
 bubbleColorInput.addEventListener('input',  () => updateSpeakerColor('bubble'));
+textColorInput.addEventListener('input',    () => updateSpeakerColor('text'));
 nameColorInput.addEventListener('input',    () => updateSpeakerColor('name'));
 messageInput.addEventListener('keypress',   e => { if (e.key === 'Enter') sendMessage(); });
 messageInput.addEventListener('paste',      handlePaste);
