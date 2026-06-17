@@ -184,6 +184,83 @@
 
 <div id="toast"></div>
 
+<!-- 웰컴 모달 -->
+<div id="welcome-overlay" class="welcome-overlay">
+    <div class="welcome-modal">
+        <button id="welcome-close-btn" class="welcome-close" title="닫기">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+
+        <div class="welcome-header">
+            <div class="welcome-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="welcome-title">썰 백업기</h1>
+                <p class="welcome-sub">채팅 로그 → 채팅 UI 변환 도구</p>
+            </div>
+        </div>
+
+        <p class="welcome-desc">
+            카카오톡·트위터 DM·밴드 채팅 로그를 붙여넣으면 채팅 UI로 변환해줍니다.<br>
+            설치 없이 브라우저에서 바로 사용할 수 있으며, 모든 처리는 로컬에서 이루어져 개인정보가 외부로 전송되지 않습니다.
+        </p>
+
+        <div class="welcome-section-label">주요 기능</div>
+        <div class="welcome-features">
+            <div class="welcome-feature">
+                <span class="feature-badge">파싱</span>
+                <div class="feature-body">
+                    <div class="feature-title">로그 자동 파싱</div>
+                    <div class="feature-desc">카카오톡·트위터 DM·밴드 채팅·밴드 댓글 형식을 자동으로 인식</div>
+                </div>
+            </div>
+            <div class="welcome-feature">
+                <span class="feature-badge">편집</span>
+                <div class="feature-body">
+                    <div class="feature-title">메시지 편집 · 직접 입력</div>
+                    <div class="feature-desc">말풍선 호버 후 편집 또는 더블클릭으로 수정 / 텍스트 직접 입력 가능</div>
+                </div>
+            </div>
+            <div class="welcome-feature">
+                <span class="feature-badge">꾸미기</span>
+                <div class="feature-body">
+                    <div class="feature-title">발화자 관리 · 색상 커스터마이징</div>
+                    <div class="feature-desc">발화자 추가·삭제·이름 변경, 말풍선·이름 색상 자유롭게 설정</div>
+                </div>
+            </div>
+            <div class="welcome-feature">
+                <span class="feature-badge">저장</span>
+                <div class="feature-body">
+                    <div class="feature-title">HTML 백업 · PNG 저장</div>
+                    <div class="feature-desc">독립 실행 HTML로 내보내기 및 불러오기 / 고해상도(2×) PNG 이미지로 저장</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="welcome-section-label">사용 방법</div>
+        <ol class="welcome-steps">
+            <li><b>로그 종류 선택</b> — 오른쪽 컨트롤 패널 상단 탭에서 카카오톡·트위터 DM·밴드 채팅·밴드 댓글 중 선택</li>
+            <li><b>발화자 설정</b> — 로그 속 이름과 정확히 일치하도록 발화자 이름을 설정 (미등록 이름은 파싱 불가)</li>
+            <li><b>로그 붙여넣기</b> — 하단 입력창에 복사한 채팅 로그를 Ctrl+V로 붙여넣으면 자동 파싱 (직접 텍스트 작성도 가능)</li>
+            <li><b>편집 및 조정</b> — 말풍선 호버 또는 더블클릭으로 수정, 이미지 버튼으로 사진 첨부</li>
+            <li><b>내보내기</b> — HTML 복사 후 .html로 저장하거나, PNG 저장 버튼으로 이미지 추출</li>
+        </ol>
+
+        <div class="welcome-footer">
+            <label class="welcome-no-show">
+                <input type="checkbox" id="welcome-no-show-check">
+                다시 보지 않기
+            </label>
+            <button id="welcome-start-btn" class="btn btn-accent welcome-btn">시작하기</button>
+        </div>
+    </div>
+</div>
+
 <script src="script.js"></script>
 </body>
 </html>

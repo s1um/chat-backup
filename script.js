@@ -836,3 +836,29 @@ updateDynamicStyles();
 applyCssVariables();
 updateSpeakerDropdown();
 syncEmptyState();
+
+// ── 웰컴 모달 ─────────────────────────────────────
+(function () {
+    const STORAGE_KEY = 'chatBackupIntroDismissed';
+    const overlay     = document.getElementById('welcome-overlay');
+    const closeBtn    = document.getElementById('welcome-close-btn');
+    const startBtn    = document.getElementById('welcome-start-btn');
+    const noShowCheck = document.getElementById('welcome-no-show-check');
+
+    function closeModal() {
+        if (noShowCheck.checked) {
+            localStorage.setItem(STORAGE_KEY, '1');
+        }
+        overlay.classList.remove('show');
+    }
+
+    if (!localStorage.getItem(STORAGE_KEY)) {
+        overlay.classList.add('show');
+    }
+
+    startBtn.addEventListener('click', closeModal);
+    closeBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeModal();
+    });
+})();
