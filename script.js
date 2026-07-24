@@ -28,8 +28,8 @@ let currentLogType = 'kakao';
 
 // ── 상태 ──────────────────────────────────────────
 let speakers = [
-    { id: 0, name: "나",       color: "#6366f1", align: "flex-end",   name_color: null,      text_color: "#ffffff" },
-    { id: 1, name: "상대방 A", color: "#e5e7eb", align: "flex-start", name_color: "#6b7280", text_color: "#111827", show_name: true }
+    { id: 0, name: "나",       color: "#6366f1", align: "flex-end",   name_color: null,      text_color: "#ffffff", avatar: null },
+    { id: 1, name: "상대방 A", color: "#e5e7eb", align: "flex-start", name_color: "#6b7280", text_color: "#111827", show_name: true, avatar: null }
 ];
 let nextSpeakerId = 2;
 
@@ -43,6 +43,8 @@ const bubbleColorInput  = document.getElementById('bubble-color-input');
 const textColorInput    = document.getElementById('text-color-input');
 const nameColorInput    = document.getElementById('name-color-input');
 const nameColorGroup    = document.getElementById('name-color-group');
+const avatarPreview     = document.getElementById('avatar-preview');
+const avatarUploadInput = document.getElementById('avatar-upload-input');
 const messageInput      = document.getElementById('message-input');
 const dynamicStyleTag   = document.getElementById('dynamic-styles');
 const toastEl           = document.getElementById('toast');
@@ -70,7 +72,10 @@ function initLogTabs() {
     });
     updateLogHint();
 }
-function updateLogHint() { logHint.innerHTML = LOG_TYPES[currentLogType].hint; }
+function updateLogHint() {
+    logHint.innerHTML = LOG_TYPES[currentLogType].hint;
+    messagesContainer.classList.toggle('comment-mode', currentLogType === 'band_comment');
+}
 
 // ── HSL → Hex 변환 (color input 호환) ───
 function hslToHex(h, s, l) {
@@ -96,6 +101,7 @@ function getAutoColor(index) {
 function updateDynamicStyles() {
     let css = '';
     for (const s of speakers) {
+        css += `.speaker-${s.id} .comment-avatar { background-color: var(--speaker-${s.id}-bubble); }\n`;
         if (s.id === 0) {
             css += `
                 .speaker-${s.id} { align-self: ${s.align}; background-color: var(--speaker-${s.id}-bubble); color: var(--speaker-${s.id}-text); }
@@ -136,7 +142,13 @@ function updateSpeakerChips() {
 
         const dot = document.createElement('div');
         dot.className = 'chip-dot';
-        dot.style.background = s.color;
+        if (s.avatar) {
+            dot.style.backgroundImage = `url("${s.avatar}")`;
+            dot.style.backgroundSize = 'cover';
+            dot.style.backgroundPosition = 'center';
+        } else {
+            dot.style.background = s.color;
+        }
 
         const name = document.createElement('div');
         name.className = 'chip-name';
@@ -227,6 +239,72 @@ function loadSpeakerSettings() {
         nameColorGroup.style.visibility = 'visible';
         nameColorInput.value = s.name_color || '#6b7280';
     }
+    updateAvatarPreview(s);
+}
+
+function updateAvatarPreview(s) {
+    if (s.avatar) {
+        avatarPreview.style.backgroundImage = `url("${s.avatar}")`;
+        avatarPreview.style.backgroundColor = 'transparent';
+    } else {
+        avatarPreview.style.backgroundImage = 'none';
+        avatarPreview.style.backgroundColor = s.color;
+    }
+}
+
+// ── 프로필 사진 ───────────────────────────────────
+function setSpeakerAvatar(id, dataUrl) {
+    const s = speakers.find(s => s.id === id);
+    if (!s) return;
+    s.avatar = dataUrl;
+    updateAvatarPreview(s);
+    updateSpeakerChips();
+    refreshAvatarDisplays(id);
+}
+
+function removeSpeakerAvatar() {
+    const id = getCurrentSpeakerId();
+    const s  = speakers.find(s => s.id === id);
+    if (!s || !s.avatar) return;
+    s.avatar = null;
+    updateAvatarPreview(s);
+    updateSpeakerChips();
+    refreshAvatarDisplays(id);
+    showToast('프로필 사진이 제거되었습니다.');
+}
+
+function refreshAvatarDisplays(id) {
+    const s = speakers.find(s => s.id === id);
+    if (!s) return;
+
+    messagesContainer.querySelectorAll(`.header-for-speaker-${id}`).forEach(hdr => {
+        let img = hdr.querySelector('.header-avatar');
+        if (s.avatar) {
+            if (!img) {
+                img = document.createElement('img');
+                img.className = 'header-avatar';
+                img.alt = '';
+                hdr.prepend(img);
+            }
+            img.src = s.avatar;
+        } else if (img) {
+            img.remove();
+        }
+    });
+
+    messagesContainer.querySelectorAll(`.speaker-${id} .comment-avatar`).forEach(av => {
+        let img = av.querySelector('img');
+        if (s.avatar) {
+            if (!img) {
+                img = document.createElement('img');
+                img.alt = '';
+                av.appendChild(img);
+            }
+            img.src = s.avatar;
+        } else if (img) {
+            img.remove();
+        }
+    });
 }
 
 function updateSpeakerColor(type) {
@@ -252,7 +330,7 @@ function getCurrentSpeakerId() { return parseInt(speakerSelect.value, 10); }
 function addSpeaker() {
     const newId  = nextSpeakerId++;
     const colors = getAutoColor(newId);
-    const newS   = { id: newId, name: `상대방 ${speakers.length}`, color: colors.bg, align: 'flex-start', name_color: colors.name, text_color: '#111827', show_name: true };
+    const newS   = { id: newId, name: `상대방 ${speakers.length}`, color: colors.bg, align: 'flex-start', name_color: colors.name, text_color: '#111827', show_name: true, avatar: null };
     speakers.push(newS);
     updateDynamicStyles(); applyCssVariables();
     updateSpeakerDropdown();
@@ -294,7 +372,28 @@ function syncEmptyState() {
 }
 
 // ── 메시지 DOM 생성 ───────────────────────────────
+function isCommentMode() { return currentLogType === 'band_comment'; }
+
 function addMessageToDOM(speaker, text) {
+    const div = document.createElement('div');
+    div.classList.add('message', `speaker-${speaker.id}`);
+    const content = document.createElement('div');
+    content.className = 'msg-text';
+    content.textContent = text;
+
+    if (isCommentMode()) {
+        div.appendChild(buildCommentAvatar(speaker));
+        const body = document.createElement('div');
+        body.className = 'comment-body';
+        body.appendChild(buildCommentName(speaker));
+        body.appendChild(content);
+        div.appendChild(body);
+        attachMessageActions(div, content);
+        messagesContainer.appendChild(div);
+        syncEmptyState();
+        return content;
+    }
+
     const allMsgs = messagesContainer.getElementsByClassName('message');
     const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : null;
     const lastEl  = messagesContainer.lastElementChild;
@@ -305,40 +404,59 @@ function addMessageToDOM(speaker, text) {
         if (lastEl && lastEl.classList.contains('message-header')) messagesContainer.removeChild(lastEl);
     }
 
-    const div = document.createElement('div');
-    div.classList.add('message', `speaker-${speaker.id}`, 'is-last-message');
-    const content = document.createElement('div');
-    content.className = 'msg-text';
-    content.textContent = text;
+    div.classList.add('is-last-message');
     div.appendChild(content);
     attachMessageActions(div, content);
     messagesContainer.appendChild(div);
 
     if (speaker.id !== 0 && speaker.show_name !== false) {
-        const hdr = document.createElement('div');
-        hdr.classList.add('message-header', `header-for-speaker-${speaker.id}`);
-        hdr.textContent = speaker.name;
-        messagesContainer.appendChild(hdr);
+        messagesContainer.appendChild(buildMessageHeader(speaker));
     }
 
     syncEmptyState();
     return content;
 }
 
+function buildCommentAvatar(speaker) {
+    const avatar = document.createElement('div');
+    avatar.className = 'comment-avatar';
+    if (speaker.avatar) {
+        const img = document.createElement('img');
+        img.src = speaker.avatar;
+        img.alt = '';
+        avatar.appendChild(img);
+    }
+    return avatar;
+}
+
+function buildCommentName(speaker) {
+    const nameEl = document.createElement('div');
+    nameEl.className = 'comment-name';
+    nameEl.textContent = speaker.name;
+    return nameEl;
+}
+
+function buildMessageHeader(speaker) {
+    const hdr = document.createElement('div');
+    hdr.classList.add('message-header', `header-for-speaker-${speaker.id}`);
+    if (speaker.avatar) {
+        const img = document.createElement('img');
+        img.className = 'header-avatar';
+        img.src = speaker.avatar;
+        img.alt = '';
+        hdr.appendChild(img);
+    }
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'header-name';
+    nameSpan.textContent = speaker.name;
+    hdr.appendChild(nameSpan);
+    return hdr;
+}
+
 // ── 이미지 메시지 DOM 생성 ───────────────────────
 function addImageToDOM(speaker, src) {
-    const allMsgs = messagesContainer.getElementsByClassName('message');
-    const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : null;
-    const lastEl  = messagesContainer.lastElementChild;
-    const isCont  = lastMsg && lastMsg.classList.contains(`speaker-${speaker.id}`);
-
-    if (isCont) {
-        lastMsg.classList.remove('is-last-message');
-        if (lastEl && lastEl.classList.contains('message-header')) messagesContainer.removeChild(lastEl);
-    }
-
     const div = document.createElement('div');
-    div.classList.add('message', `speaker-${speaker.id}`, 'is-last-message');
+    div.classList.add('message', `speaker-${speaker.id}`);
 
     const wrap = document.createElement('div');
     wrap.className = 'msg-img-wrap';
@@ -348,15 +466,37 @@ function addImageToDOM(speaker, src) {
     img.alt = '이미지';
     img.addEventListener('click', () => openLightbox(src));
     wrap.appendChild(img);
+
+    if (isCommentMode()) {
+        div.appendChild(buildCommentAvatar(speaker));
+        const body = document.createElement('div');
+        body.className = 'comment-body';
+        body.appendChild(buildCommentName(speaker));
+        body.appendChild(wrap);
+        div.appendChild(body);
+        attachMessageActions(div, null);
+        messagesContainer.appendChild(div);
+        syncEmptyState();
+        return;
+    }
+
+    const allMsgs = messagesContainer.getElementsByClassName('message');
+    const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : null;
+    const lastEl  = messagesContainer.lastElementChild;
+    const isCont  = lastMsg && lastMsg.classList.contains(`speaker-${speaker.id}`);
+
+    if (isCont) {
+        lastMsg.classList.remove('is-last-message');
+        if (lastEl && lastEl.classList.contains('message-header')) messagesContainer.removeChild(lastEl);
+    }
+
+    div.classList.add('is-last-message');
     div.appendChild(wrap);
     attachMessageActions(div, null);
     messagesContainer.appendChild(div);
 
     if (speaker.id !== 0 && speaker.show_name !== false) {
-        const hdr = document.createElement('div');
-        hdr.classList.add('message-header', `header-for-speaker-${speaker.id}`);
-        hdr.textContent = speaker.name;
-        messagesContainer.appendChild(hdr);
+        messagesContainer.appendChild(buildMessageHeader(speaker));
     }
 
     syncEmptyState();
@@ -449,6 +589,7 @@ function deleteMessage(msgEl) {
 }
 
 function rebuildMessageHeaders() {
+    if (isCommentMode()) return;
     messagesContainer.querySelectorAll('.message-header').forEach(h => h.remove());
     const msgs = [...messagesContainer.querySelectorAll('.message')];
     msgs.forEach(m => m.classList.remove('is-last-message'));
@@ -464,10 +605,7 @@ function rebuildMessageHeaders() {
             if (sid !== null && sid !== 0) {
                 const sp = speakers.find(s => s.id === sid);
                 if (sp && sp.show_name !== false) {
-                    const hdr = document.createElement('div');
-                    hdr.classList.add('message-header', `header-for-speaker-${sid}`);
-                    hdr.textContent = sp.name;
-                    msg.after(hdr);
+                    msg.after(buildMessageHeader(sp));
                 }
             }
         }
@@ -653,11 +791,23 @@ function buildBackupHtml() {
             .chat-container { width: 100%; max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); overflow: hidden; display: flex; flex-direction: column; min-height: 400px; }
             .messages { flex-grow: 1; padding: 10px; display: flex; flex-direction: column; }
             .message { margin: 2px 0; padding: 10px 15px; border-radius: 18px; max-width: 70%; word-wrap: break-word; line-height: 1.4; position: relative; white-space: pre-wrap; }
-            .message-header { font-size: 12px; font-weight: bold; }
-            .system-message { text-align: center; color: #6c757d; font-size: 12px; margin: 10px 0; }`;
+            .message-header { font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
+            .header-avatar { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex-shrink: 0; display: block; }
+            .system-message { text-align: center; color: #6c757d; font-size: 12px; margin: 10px 0; }
+            .messages.comment-mode { gap: 0; }
+            .messages.comment-mode .message { display: flex; align-items: flex-start; align-self: stretch !important; gap: 10px; max-width: 100%; padding: 10px 2px; margin: 0; border-radius: 0; border-bottom: 1px solid rgba(0,0,0,0.08); background: none !important; }
+            .messages.comment-mode .message:last-child { border-bottom: none; }
+            .comment-avatar { width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; background: #e5e7eb; overflow: hidden; }
+            .comment-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+            .comment-body { flex: 1; min-width: 0; }
+            .comment-name { font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 3px; }
+            .messages.comment-mode .msg-text { color: #111827 !important; }`;
 
+    const isComment = messagesContainer.classList.contains('comment-mode');
     let speakerCss = '';
     for (const s of speakers) {
+        speakerCss += `
+                    .speaker-${s.id} .comment-avatar { background-color: ${s.color}; }`;
         if (s.id === 0) {
             speakerCss += `
                     .speaker-0 { align-self: flex-end; background-color: ${s.color}; color: ${s.text_color || '#ffffff'}; }
@@ -682,7 +832,7 @@ ${speakerCss}
 </head>
 <body class="backup-body">
     <div class="chat-container">
-        <div class="messages">
+        <div class="messages${isComment ? ' comment-mode' : ''}">
 ${html}
         </div>
     </div>
@@ -754,6 +904,8 @@ function loadBackupFile(file) {
             return;
         }
 
+        messagesContainer.classList.toggle('comment-mode', !!doc.querySelector('.messages.comment-mode'));
+
         Array.from(messagesContainer.children).forEach(el => {
             if (el.id !== 'empty-state') messagesContainer.removeChild(el);
         });
@@ -785,7 +937,7 @@ function loadBackupFile(file) {
                 imgEl.addEventListener('click', () => openLightbox(imgEl.src));
                 attachMessageActions(msgEl, null);
             } else {
-                const textEl = msgEl.querySelector('div:not(.msg-actions)') || msgEl.firstElementChild;
+                const textEl = msgEl.querySelector('.msg-text') || msgEl.querySelector('div:not(.msg-actions)') || msgEl.firstElementChild;
                 if (textEl) {
                     textEl.classList.add('msg-text');
                     attachMessageActions(msgEl, textEl);
@@ -825,6 +977,16 @@ document.getElementById('img-upload-input').addEventListener('change', e => {
 document.getElementById('img-lightbox').addEventListener('click', () => {
     document.getElementById('img-lightbox').classList.remove('show');
 });
+document.getElementById('avatar-upload-btn').addEventListener('click', () => avatarUploadInput.click());
+avatarUploadInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setSpeakerAvatar(getCurrentSpeakerId(), ev.target.result);
+    reader.readAsDataURL(file);
+    e.target.value = '';
+});
+document.getElementById('avatar-remove-btn').addEventListener('click', removeSpeakerAvatar);
 speakerSelect.addEventListener('change',    () => { loadSpeakerSettings(); updateSpeakerChips(); });
 bubbleColorInput.addEventListener('input',  () => updateSpeakerColor('bubble'));
 textColorInput.addEventListener('input',    () => updateSpeakerColor('text'));

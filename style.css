@@ -117,8 +117,33 @@ body {
     from { opacity: 0; transform: scale(0.9) translateY(5px); }
     to   { opacity: 1; transform: scale(1)   translateY(0); }
 }
-.message-header { font-size: 10px; font-weight: 600; letter-spacing: 0.2px; margin-top: 2px; margin-bottom: 3px; }
+.message-header { font-size: 10px; font-weight: 600; letter-spacing: 0.2px; margin-top: 2px; margin-bottom: 3px; display: flex; align-items: center; gap: 5px; }
+.header-avatar { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex-shrink: 0; display: block; }
 .system-message { text-align: center; color: var(--text-3); font-size: 11px; margin: 6px 0; }
+
+/* ═══ 밴드 댓글 모드 (말풍선 → 댓글 리스트) ═══ */
+.messages.comment-mode { gap: 0; }
+.messages.comment-mode .message {
+    display: flex;
+    align-items: flex-start;
+    align-self: stretch;
+    gap: 10px;
+    max-width: 100%;
+    padding: 10px 2px;
+    margin: 0;
+    border-radius: 0;
+    border-bottom: 1px solid var(--border);
+    background: none;
+    animation: none;
+}
+.messages.comment-mode .message:last-child { border-bottom: none; }
+.messages.comment-mode .message:has(.msg-image) { padding: 10px 2px; }
+.comment-avatar { width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; background: var(--bg-hover); overflow: hidden; }
+.comment-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.comment-body { flex: 1; min-width: 0; }
+.comment-name { font-size: 13px; font-weight: 700; color: var(--text-1); margin-bottom: 3px; }
+.messages.comment-mode .msg-text { color: var(--text-1); }
+.messages.comment-mode .msg-actions { left: auto; right: 0; }
 
 /* 빈 상태 */
 .empty-state {
@@ -271,6 +296,15 @@ select.field { cursor: pointer; }
 .btn-full { width: 100%; padding: 9px; font-size: 12px; border-radius: var(--r-md); text-align: center; }
 
 .export-group { display: flex; flex-direction: column; gap: 7px; }
+
+/* 프로필 사진 편집 */
+.avatar-edit-row { display: flex; align-items: center; gap: 8px; }
+.avatar-preview {
+    width: 38px; height: 38px; flex-shrink: 0;
+    border-radius: 50%;
+    background-size: cover; background-position: center;
+    border: 1px solid var(--border-md);
+}
 
 /* 색상 스와치 */
 .color-row { display: flex; align-items: center; gap: 10px; }

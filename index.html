@@ -106,7 +106,18 @@
             </div>
         </div>
 
-        <!-- ④ 색상 설정 -->
+        <!-- ④ 프로필 사진 -->
+        <div class="ctrl-section">
+            <div class="section-label">프로필 사진</div>
+            <div class="avatar-edit-row">
+                <div class="avatar-preview" id="avatar-preview"></div>
+                <input type="file" id="avatar-upload-input" accept="image/*" style="display:none">
+                <button id="avatar-upload-btn" class="btn btn-muted" style="flex:1">사진 선택</button>
+                <button id="avatar-remove-btn" class="btn btn-red" style="flex:1">제거</button>
+            </div>
+        </div>
+
+        <!-- ⑤ 색상 설정 -->
         <div class="ctrl-section">
             <div class="section-label">색상 설정</div>
             <div class="color-row">
@@ -125,7 +136,7 @@
             </div>
         </div>
 
-        <!-- ④-2 백업 불러오기 -->
+        <!-- ⑤-2 백업 불러오기 -->
         <div class="ctrl-section">
             <div class="section-label">백업 불러오기</div>
             <input type="file" id="load-backup-input" accept=".html" style="display:none">
@@ -138,7 +149,7 @@
             </div>
         </div>
 
-        <!-- ⑤ 내보내기 -->
+        <!-- ⑥ 내보내기 -->
         <div class="ctrl-section">
             <div class="section-label">내보내기</div>
             <div class="export-group">
@@ -161,7 +172,7 @@
             </div>
         </div>
 
-        <!-- ⑥ 사용 안내 -->
+        <!-- ⑦ 사용 안내 -->
         <div class="ctrl-section" style="border-bottom:none">
             <div class="section-label">사용 안내</div>
             <div style="font-size:11px;color:var(--text-3);line-height:1.75">
