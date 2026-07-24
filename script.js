@@ -20,7 +20,7 @@ const LOG_TYPES = {
     },
     band_comment: {
         label: '밴드 댓글',
-        hint: `<b>형식:</b> 이름 → 내용 <br>밴드 게시글 댓글을 그대로 붙여넣으세요.`
+        hint: `<b>형식:</b> 이름 → 내용 <br>밴드 게시글 댓글을 그대로 긁어서 붙여넣으세요.<br>날짜를 기준으로 댓글 내용을 구분합니다.`
     }
 };
 
@@ -74,7 +74,10 @@ function initLogTabs() {
 }
 function updateLogHint() {
     logHint.innerHTML = LOG_TYPES[currentLogType].hint;
-    messagesContainer.classList.toggle('comment-mode', currentLogType === 'band_comment');
+    const willBeComment = currentLogType === 'band_comment';
+    const wasComment    = messagesContainer.classList.contains('comment-mode');
+    messagesContainer.classList.toggle('comment-mode', willBeComment);
+    if (wasComment !== willBeComment) rebuildMessagesInCurrentMode();
 }
 
 // ── HSL → Hex 변환 (color input 호환) ───
@@ -373,6 +376,44 @@ function syncEmptyState() {
 
 // ── 메시지 DOM 생성 ───────────────────────────────
 function isCommentMode() { return currentLogType === 'band_comment'; }
+
+// ── 말풍선 ↔ 댓글 형식 전환 ───────────────────────
+function extractMessagesData() {
+    const data = [];
+    messagesContainer.querySelectorAll('.message').forEach(msgEl => {
+        const sc = [...msgEl.classList].find(c => /^speaker-\d+$/.test(c));
+        if (!sc) return;
+        const speakerId = parseInt(sc.replace('speaker-', ''), 10);
+        const locked  = msgEl.classList.contains('msg-locked');
+        const imgEl   = msgEl.querySelector('img.msg-image');
+        if (imgEl) {
+            data.push({ speakerId, type: 'image', src: imgEl.src, locked });
+        } else {
+            const textEl = msgEl.querySelector('.msg-text');
+            data.push({ speakerId, type: 'text', text: textEl ? textEl.textContent : '', locked });
+        }
+    });
+    return data;
+}
+
+function rebuildMessagesInCurrentMode() {
+    const data = extractMessagesData();
+    if (!data.length) return;
+
+    Array.from(messagesContainer.children).forEach(el => {
+        if (el.id !== 'empty-state') messagesContainer.removeChild(el);
+    });
+
+    data.forEach(m => {
+        const s = speakers.find(sp => sp.id === m.speakerId);
+        if (!s) return;
+        if (m.type === 'image') addImageToDOM(s, m.src);
+        else                    addMessageToDOM(s, m.text, { locked: m.locked });
+    });
+
+    syncEmptyState();
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
 
 function addMessageToDOM(speaker, text, opts = {}) {
     const div = document.createElement('div');
