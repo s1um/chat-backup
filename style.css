@@ -119,6 +119,7 @@ body {
 }
 .message-header { font-size: 10px; font-weight: 600; letter-spacing: 0.2px; margin-top: 2px; margin-bottom: 3px; display: flex; align-items: center; gap: 5px; }
 .header-avatar { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex-shrink: 0; display: block; }
+.header-lock { display: flex; align-items: center; color: var(--text-3); flex-shrink: 0; }
 .system-message { text-align: center; color: var(--text-3); font-size: 11px; margin: 6px 0; }
 
 /* ═══ 밴드 댓글 모드 (말풍선 → 댓글 리스트) ═══ */
@@ -141,7 +142,7 @@ body {
 .comment-avatar { width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; background: var(--bg-hover); overflow: hidden; }
 .comment-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .comment-body { flex: 1; min-width: 0; }
-.comment-name { font-size: 13px; font-weight: 700; color: var(--text-1); margin-bottom: 3px; }
+.comment-name { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: var(--text-1); margin-bottom: 3px; }
 .messages.comment-mode .msg-text { color: var(--text-1); }
 .messages.comment-mode .msg-actions { left: auto; right: 0; }
 

@@ -14,13 +14,13 @@ const LOG_TYPES = {
     },
     band: {
         label: '밴드 채팅',
-        hint: `<b>형식 A:</b> 이름(단독 줄) → 메시지 줄<br><b>형식 B:</b> <code>yyyy.mm.dd hh:mm 이름</code> → 메시지 줄<br>두 형식 모두 지원합니다.`,
+        hint: `<b>형식 A:</b> 이름(단독 줄) → 메시지 줄<br><b>형식 B:</b> <code>yyyy.mm.dd hh:mm 이름</code> → 메시지 줄<br>두 형식 모두 지원합니다.<br>'비밀 댓글'로 시작하는 메시지는 내용 대신 이름 옆에 🔒로 표시됩니다.`,
         timeRe:     /\s*\d{1,2}:\d{2}$/,
         dateLineRe: /^\d{4}\.\d{2}\.\d{2}\s+\d{1,2}:\d{2}\s+(.+)$/
     },
     band_comment: {
         label: '밴드 댓글',
-        hint: `<b>형식:</b> 이름 → 내용 <br>밴드 게시글 댓글을 그대로 붙여넣으세요.`
+        hint: `<b>형식:</b> 이름 → 내용 <br>밴드 게시글 댓글을 그대로 붙여넣으세요.<br>'비밀 댓글'로 시작하는 내용은 지워지고 이름 옆에 🔒로 표시됩니다.`
     }
 };
 
@@ -374,9 +374,10 @@ function syncEmptyState() {
 // ── 메시지 DOM 생성 ───────────────────────────────
 function isCommentMode() { return currentLogType === 'band_comment'; }
 
-function addMessageToDOM(speaker, text) {
+function addMessageToDOM(speaker, text, opts = {}) {
     const div = document.createElement('div');
     div.classList.add('message', `speaker-${speaker.id}`);
+    if (opts.locked) div.classList.add('msg-locked');
     const content = document.createElement('div');
     content.className = 'msg-text';
     content.textContent = text;
@@ -385,7 +386,7 @@ function addMessageToDOM(speaker, text) {
         div.appendChild(buildCommentAvatar(speaker));
         const body = document.createElement('div');
         body.className = 'comment-body';
-        body.appendChild(buildCommentName(speaker));
+        body.appendChild(buildCommentName(speaker, opts.locked));
         body.appendChild(content);
         div.appendChild(body);
         attachMessageActions(div, content);
@@ -410,11 +411,21 @@ function addMessageToDOM(speaker, text) {
     messagesContainer.appendChild(div);
 
     if (speaker.id !== 0 && speaker.show_name !== false) {
-        messagesContainer.appendChild(buildMessageHeader(speaker));
+        messagesContainer.appendChild(buildMessageHeader(speaker, isGroupLocked(div)));
     }
 
     syncEmptyState();
     return content;
+}
+
+function isGroupLocked(startEl) {
+    const sc = [...startEl.classList].find(c => /^speaker-\d+$/.test(c));
+    let el = startEl;
+    while (el && el.classList.contains(sc)) {
+        if (el.classList.contains('msg-locked')) return true;
+        el = el.previousElementSibling;
+    }
+    return false;
 }
 
 function buildCommentAvatar(speaker) {
@@ -429,14 +440,23 @@ function buildCommentAvatar(speaker) {
     return avatar;
 }
 
-function buildCommentName(speaker) {
+function buildCommentName(speaker, locked) {
     const nameEl = document.createElement('div');
     nameEl.className = 'comment-name';
-    nameEl.textContent = speaker.name;
+    const nameText = document.createElement('span');
+    nameText.textContent = speaker.name;
+    nameEl.appendChild(nameText);
+    if (locked) {
+        const lockIcon = document.createElement('span');
+        lockIcon.className = 'header-lock';
+        lockIcon.title = '비밀 댓글';
+        lockIcon.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+        nameEl.appendChild(lockIcon);
+    }
     return nameEl;
 }
 
-function buildMessageHeader(speaker) {
+function buildMessageHeader(speaker, locked) {
     const hdr = document.createElement('div');
     hdr.classList.add('message-header', `header-for-speaker-${speaker.id}`);
     if (speaker.avatar) {
@@ -450,6 +470,13 @@ function buildMessageHeader(speaker) {
     nameSpan.className = 'header-name';
     nameSpan.textContent = speaker.name;
     hdr.appendChild(nameSpan);
+    if (locked) {
+        const lockIcon = document.createElement('span');
+        lockIcon.className = 'header-lock';
+        lockIcon.title = '비밀 댓글';
+        lockIcon.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+        hdr.appendChild(lockIcon);
+    }
     return hdr;
 }
 
@@ -496,7 +523,7 @@ function addImageToDOM(speaker, src) {
     messagesContainer.appendChild(div);
 
     if (speaker.id !== 0 && speaker.show_name !== false) {
-        messagesContainer.appendChild(buildMessageHeader(speaker));
+        messagesContainer.appendChild(buildMessageHeader(speaker, isGroupLocked(div)));
     }
 
     syncEmptyState();
@@ -605,7 +632,7 @@ function rebuildMessageHeaders() {
             if (sid !== null && sid !== 0) {
                 const sp = speakers.find(s => s.id === sid);
                 if (sp && sp.show_name !== false) {
-                    msg.after(buildMessageHeader(sp));
+                    msg.after(buildMessageHeader(sp, isGroupLocked(msg)));
                 }
             }
         }
@@ -698,8 +725,12 @@ function parsePastedLines(lines) {
         let contentLines = [];
 
         const flushContent = () => {
-            if (currentName && contentLines.length > 0)
-                results.push({ speakerName: currentName, text: contentLines.join('\n') });
+            if (currentName && contentLines.length > 0) {
+                const rawText = contentLines.join('\n');
+                const locked  = /^비밀\s*댓글/.test(rawText);
+                const text    = locked ? rawText.replace(/^비밀\s*댓글[:\s]*/, '').trim() : rawText;
+                results.push({ speakerName: currentName, text, locked });
+            }
             currentName = null;
             contentLines = [];
         };
@@ -744,8 +775,9 @@ function parsePastedLines(lines) {
                 return;
             }
 
-            const msgText = t.replace(timeRe, '').trim();
-            results.push({ speakerName: pendingName, text: msgText || t });
+            const rawMsgText = t.replace(timeRe, '').trim() || t;
+            const locked = /^비밀\s*댓글/.test(rawMsgText);
+            results.push({ speakerName: pendingName, text: locked ? '' : rawMsgText, locked });
             pendingName = null;
         });
     }
@@ -762,9 +794,9 @@ function handlePaste(event) {
     const missed  = new Set();
 
     if (parsed.length > 0) {
-        parsed.forEach(({ speakerName, text }) => {
+        parsed.forEach(({ speakerName, text, locked }) => {
             const s = speakers.find(s => s.name === speakerName);
-            if (s) { addMessageToDOM(s, text); }
+            if (s) { addMessageToDOM(s, text, { locked }); }
             else   { missed.add(speakerName); }
         });
         if (missed.size > 0) showToast(`미등록 발화자: ${[...missed].join(', ')}`);
@@ -793,6 +825,7 @@ function buildBackupHtml() {
             .message { margin: 2px 0; padding: 10px 15px; border-radius: 18px; max-width: 70%; word-wrap: break-word; line-height: 1.4; position: relative; white-space: pre-wrap; }
             .message-header { font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
             .header-avatar { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex-shrink: 0; display: block; }
+            .header-lock { display: flex; align-items: center; color: #9ca3af; flex-shrink: 0; }
             .system-message { text-align: center; color: #6c757d; font-size: 12px; margin: 10px 0; }
             .messages.comment-mode { gap: 0; }
             .messages.comment-mode .message { display: flex; align-items: flex-start; align-self: stretch !important; gap: 10px; max-width: 100%; padding: 10px 2px; margin: 0; border-radius: 0; border-bottom: 1px solid rgba(0,0,0,0.08); background: none !important; }
@@ -800,7 +833,7 @@ function buildBackupHtml() {
             .comment-avatar { width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; background: #e5e7eb; overflow: hidden; }
             .comment-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
             .comment-body { flex: 1; min-width: 0; }
-            .comment-name { font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 3px; }
+            .comment-name { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 3px; }
             .messages.comment-mode .msg-text { color: #111827 !important; }`;
 
     const isComment = messagesContainer.classList.contains('comment-mode');
