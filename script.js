@@ -550,7 +550,9 @@ function parsePastedLines(lines) {
 
     } else if (currentLogType === 'band_comment') {
         const UI_SKIP = new Set(['표정짓기', '답글쓰기', '댓글 수정', '댓글']);
-        const isDateLine = t => /^\d{1,2}월\s+\d{1,2}일\s+(오전|오후)\s+\d{1,2}:\d{2}/.test(t);
+        const isDateLine = t => /^\d{1,2}월\s+\d{1,2}일\s+(오전|오후)\s+\d{1,2}:\d{2}/.test(t)
+            || /^\d+\s*(분|시간)\s*전$/.test(t)
+            || /^지금\s*막$/.test(t);
         const isUISkip = t => UI_SKIP.has(t) || /^멤버/.test(t);
 
         let state = 0;
@@ -636,8 +638,8 @@ function handlePaste(event) {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-// ── HTML 복사 ─────────────────────────────────────
-function copyMessagesAsHtml() {
+// ── HTML 생성 ─────────────────────────────────────
+function buildBackupHtml() {
     const msgs = messagesContainer.querySelectorAll('.message, .system-message, .message-header');
     let html = '';
     msgs.forEach(m => {
@@ -668,7 +670,7 @@ function copyMessagesAsHtml() {
         }
     }
 
-    const out = `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -686,10 +688,28 @@ ${html}
     </div>
 </body>
 </html>`;
+}
 
-    navigator.clipboard.writeText(out)
+// ── HTML 복사 ─────────────────────────────────────
+function copyMessagesAsHtml() {
+    navigator.clipboard.writeText(buildBackupHtml())
         .then(() => showToast('HTML 복사 완료!'))
         .catch(() => showToast('복사 실패 — 브라우저 설정을 확인해주세요.'));
+}
+
+// ── HTML 파일로 저장 ──────────────────────────────
+function exportHtmlFile() {
+    if (!messagesContainer.querySelector('.message')) {
+        showToast('저장할 메시지가 없습니다.'); return;
+    }
+    const blob = new Blob([buildBackupHtml()], { type: 'text/html' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `DM_백업_${new Date().toISOString().slice(0, 10)}.html`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('HTML 파일 저장 완료!');
 }
 
 // ── PNG 저장 ──────────────────────────────────────
@@ -784,6 +804,7 @@ function loadBackupFile(file) {
 document.getElementById('add-speaker-btn').addEventListener('click',  addSpeaker);
 document.getElementById('change-name-btn').addEventListener('click',  changeSpeakerName);
 document.getElementById('copy-html-btn').addEventListener('click',    copyMessagesAsHtml);
+document.getElementById('export-html-btn').addEventListener('click',  exportHtmlFile);
 document.getElementById('export-png-btn').addEventListener('click',   exportPng);
 document.getElementById('clear-btn').addEventListener('click',        clearMessages);
 document.getElementById('send-btn').addEventListener('click',         sendMessage);

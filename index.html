@@ -146,6 +146,10 @@
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                     HTML 복사
                 </button>
+                <button id="export-html-btn" class="btn btn-accent btn-full">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    HTML 파일로 저장
+                </button>
                 <button id="export-png-btn" class="btn btn-orange btn-full">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     PNG 저장
@@ -164,7 +168,7 @@
                 <p>• 입력창에 로그를 붙여넣으면 자동 파싱</p>
                 <p style="margin-top:3px">• 발화자 이름은 로그와 동일하게 설정</p>
                 <p style="margin-top:3px">• PNG 저장은 메시지 영역만 이미지로 저장</p>
-                <p style="margin-top:3px">• HTML 복사 후 새 파일로 저장하면 백업 완료</p>
+                <p style="margin-top:3px">• HTML 파일로 저장 시 .html 파일이 바로 다운로드됨</p>
             </div>
         </div>
     </div>
@@ -237,7 +241,7 @@
                 <span class="feature-badge">저장</span>
                 <div class="feature-body">
                     <div class="feature-title">HTML 백업 · PNG 저장</div>
-                    <div class="feature-desc">독립 실행 HTML로 내보내기 및 불러오기 / 고해상도(2×) PNG 이미지로 저장</div>
+                    <div class="feature-desc">독립 실행 HTML로 내보내기(복사 또는 파일 다운로드) 및 불러오기 / 고해상도(2×) PNG 이미지로 저장</div>
                 </div>
             </div>
         </div>
@@ -248,7 +252,7 @@
             <li><b>발화자 설정</b> — 로그 속 이름과 정확히 일치하도록 발화자 이름을 설정 (미등록 이름은 파싱 불가)</li>
             <li><b>로그 붙여넣기</b> — 하단 입력창에 복사한 채팅 로그를 Ctrl+V로 붙여넣으면 자동 파싱 (직접 텍스트 작성도 가능)</li>
             <li><b>편집 및 조정</b> — 말풍선 호버 또는 더블클릭으로 수정, 이미지 버튼으로 사진 첨부</li>
-            <li><b>내보내기</b> — HTML 복사 후 .html로 저장하거나, PNG 저장 버튼으로 이미지 추출</li>
+            <li><b>내보내기</b> — HTML 파일로 저장 버튼으로 .html 파일 즉시 다운로드하거나, HTML 복사 후 붙여넣어 저장, PNG 저장 버튼으로 이미지 추출</li>
         </ol>
 
         <div class="welcome-footer">
