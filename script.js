@@ -9,7 +9,6 @@ const LOG_TYPES = {
         label: '트위터 DM',
         hint: `<b>형식 A:</b> 이름 TAB 메시지 TAB 시간 (탭 구분)<br><b>형식 B:</b> [이름] → 메시지(여러 줄 가능) → 오전/오후 h:mm<br>타임스탬프가 발화자 구분 기준 — 타임스탬프마다 다음 발화자로 전환됩니다.`,
         regexTab:   /^(.+?)\t(.+?)(?:\t.+)?$/,
-        regexColon: /^(.+?):\s+(.+)$/,
         timeRe:     /^(오전|오후)\s+\d{1,2}:\d{2}$/
     },
     band: {
@@ -707,7 +706,7 @@ function parsePastedLines(lines) {
         });
 
     } else if (currentLogType === 'twitter') {
-        const { regexTab: reTab, regexColon: reColon, timeRe } = LOG_TYPES.twitter;
+        const { regexTab: reTab, timeRe } = LOG_TYPES.twitter;
         const fallbackName = speakers.find(s => s.id === getCurrentSpeakerId())?.name ?? null;
 
         const ring        = speakers.map(s => s.name);
@@ -715,6 +714,9 @@ function parsePastedLines(lines) {
         let currentSpeaker = ring[0] ?? fallbackName;
         let pendingMsgs   = [];
         let expectName    = true;
+
+        const selfName  = speakers.find(s => s.id === 0)?.name ?? fallbackName;
+        const otherName = speakers.find(s => s.id !== 0)?.name ?? fallbackName;
 
         const flushMsgs = () => {
             const name = currentSpeaker ?? fallbackName;
@@ -724,21 +726,41 @@ function parsePastedLines(lines) {
             pendingMsgs = [];
         };
 
+        let lastWasTime = false;
+
         lines.forEach(line => {
             const t = line.trim(); if (!t) return;
 
-            let m = t.match(reTab);
-            if (m) { flushMsgs(); results.push({ speakerName: m[1].trim(), text: m[2].trim() }); return; }
-            m = t.match(reColon);
-            if (m) { flushMsgs(); results.push({ speakerName: m[1].trim(), text: m[2].trim() }); return; }
+            const m = t.match(reTab);
+            if (m) { flushMsgs(); results.push({ speakerName: m[1].trim(), text: m[2].trim() }); lastWasTime = false; return; }
 
             if (timeRe.test(t)) {
                 flushMsgs();
-                ringIdx = (ringIdx + 1) % Math.max(ring.length, 1);
-                currentSpeaker = ring[ringIdx] ?? fallbackName;
-                expectName = true;
+                // 트위터 복사 시 타임스탬프가 연속 두 줄로 중복되므로, 연속된 타임스탬프는 하나의 전환으로만 처리
+                if (!lastWasTime) {
+                    const beforeSpeaker = currentSpeaker;
+
+                    if (speakers.length === 2 && otherName) {
+                        // 나 외 등록된 상대방이 1명뿐인 경우: 타임스탬프마다 나 ↔ 상대방으로 확실히 전환
+                        currentSpeaker = (beforeSpeaker === selfName) ? otherName : selfName;
+                        ringIdx = ring.indexOf(currentSpeaker);
+                    } else {
+                        ringIdx = (ringIdx + 1) % Math.max(ring.length, 1);
+                        currentSpeaker = ring[ringIdx] ?? fallbackName;
+                        // 순환으로 화자가 안 바뀌는 경우(화자 1명만 등록 등) 나 ↔ 상대방으로 강제 전환
+                        if (currentSpeaker === beforeSpeaker) {
+                            currentSpeaker = (beforeSpeaker === selfName) ? (otherName ?? fallbackName) : (selfName ?? fallbackName);
+                            ringIdx = ring.indexOf(currentSpeaker);
+                            if (ringIdx === -1) ringIdx = 0;
+                        }
+                    }
+                    expectName = true;
+                }
+                lastWasTime = true;
                 return;
             }
+
+            lastWasTime = false;
 
             if (expectName) {
                 expectName = false;
