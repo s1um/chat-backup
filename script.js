@@ -11,6 +11,10 @@ const LOG_TYPES = {
         regexTab:   /^(.+?)\t(.+?)(?:\t.+)?$/,
         timeRe:     /^(오전|오후)\s+\d{1,2}:\d{2}$/
     },
+    twitter_mention: {
+        label: '트위터 멘션',
+        hint: `<b>형식:</b> 닉네임 → <code>@아이디</code> → · → 시간 → 내용<br>닉네임을 발화자로 인식하고 트위터(X) 스레드 형태로 표시합니다. 타임라인·멘션을 그대로 붙여넣으세요.`
+    },
     band: {
         label: '밴드 채팅',
         hint: `<b>형식 A:</b> 이름(단독 줄) → 메시지 줄<br><b>형식 B:</b> <code>yyyy.mm.dd hh:mm 이름</code> → 메시지 줄<br>두 형식 모두 지원합니다.`,
@@ -67,16 +71,25 @@ function initLogTabs() {
             btn.classList.add('active');
             currentLogType = btn.dataset.type;
             updateLogHint();
+            updateSpeakerChips();
         });
     });
     updateLogHint();
 }
+function currentRenderMode() {
+    if (currentLogType === 'band_comment')    return 'comment';
+    if (currentLogType === 'twitter_mention') return 'tweet';
+    return 'bubble';
+}
 function updateLogHint() {
     logHint.innerHTML = LOG_TYPES[currentLogType].hint;
-    const willBeComment = currentLogType === 'band_comment';
-    const wasComment    = messagesContainer.classList.contains('comment-mode');
-    messagesContainer.classList.toggle('comment-mode', willBeComment);
-    if (wasComment !== willBeComment) rebuildMessagesInCurrentMode();
+    const mode = currentRenderMode();
+    const prev = messagesContainer.classList.contains('comment-mode') ? 'comment'
+               : messagesContainer.classList.contains('tweet-mode')   ? 'tweet'
+               : 'bubble';
+    messagesContainer.classList.toggle('comment-mode', mode === 'comment');
+    messagesContainer.classList.toggle('tweet-mode',   mode === 'tweet');
+    if (prev !== mode) rebuildMessagesInCurrentMode();
 }
 
 // ── HSL → Hex 변환 (color input 호환) ───
@@ -162,6 +175,19 @@ function updateSpeakerChips() {
 
         chip.append(dot, name, tag);
 
+        if (currentLogType === 'twitter_mention') {
+            const handleToggle = document.createElement('button');
+            const handleOn = s.show_handle !== false;
+            handleToggle.className = 'chip-handle-toggle' + (handleOn ? '' : ' hidden');
+            handleToggle.title = handleOn ? '아이디 숨기기' : '아이디 표시';
+            handleToggle.textContent = '@';
+            handleToggle.addEventListener('click', e => {
+                e.stopPropagation();
+                toggleSpeakerHandle(s.id);
+            });
+            chip.append(handleToggle);
+        }
+
         if (s.id !== 0) {
             const toggle = document.createElement('button');
             toggle.className = 'chip-name-toggle' + (s.show_name ? '' : ' hidden');
@@ -200,6 +226,20 @@ function toggleSpeakerName(id) {
     s.show_name = !s.show_name;
     updateSpeakerChips();
     rebuildMessageHeaders();
+}
+
+function toggleSpeakerHandle(id) {
+    const s = speakers.find(s => s.id === id);
+    if (!s) return;
+    const msgs = [...messagesContainer.querySelectorAll(`.message.speaker-${id}`)];
+    if (msgs.length) {
+        const anyShown = msgs.some(el => !el.classList.contains('hide-handle'));
+        s.show_handle = !anyShown;
+    } else {
+        s.show_handle = s.show_handle === false;
+    }
+    msgs.forEach(el => el.classList.toggle('hide-handle', s.show_handle === false));
+    updateSpeakerChips();
 }
 
 function deleteSpeaker(id) {
@@ -374,7 +414,8 @@ function syncEmptyState() {
 }
 
 // ── 메시지 DOM 생성 ───────────────────────────────
-function isCommentMode() { return currentLogType === 'band_comment'; }
+function isCommentMode() { return currentRenderMode() === 'comment'; }
+function isTweetMode()   { return currentRenderMode() === 'tweet'; }
 
 // ── 말풍선 ↔ 댓글 형식 전환 ───────────────────────
 function extractMessagesData() {
@@ -384,12 +425,17 @@ function extractMessagesData() {
         if (!sc) return;
         const speakerId = parseInt(sc.replace('speaker-', ''), 10);
         const locked  = msgEl.classList.contains('msg-locked');
+        const tweet   = {
+            handle: msgEl.dataset.handle || '',
+            time:   msgEl.dataset.time   || '',
+            stats:  msgEl.dataset.stats  ? msgEl.dataset.stats.split('|') : []
+        };
         const imgEl   = msgEl.querySelector('img.msg-image');
         if (imgEl) {
-            data.push({ speakerId, type: 'image', src: imgEl.src, locked });
+            data.push({ speakerId, type: 'image', src: imgEl.src, locked, ...tweet });
         } else {
             const textEl = msgEl.querySelector('.msg-text');
-            data.push({ speakerId, type: 'text', text: textEl ? textEl.textContent : '', locked });
+            data.push({ speakerId, type: 'text', text: textEl ? textEl.textContent : '', locked, ...tweet });
         }
     });
     return data;
@@ -406,8 +452,9 @@ function rebuildMessagesInCurrentMode() {
     data.forEach(m => {
         const s = speakers.find(sp => sp.id === m.speakerId);
         if (!s) return;
-        if (m.type === 'image') addImageToDOM(s, m.src);
-        else                    addMessageToDOM(s, m.text, { locked: m.locked });
+        const opts = { locked: m.locked, handle: m.handle, time: m.time, stats: m.stats };
+        if (m.type === 'image') addImageToDOM(s, m.src, opts);
+        else                    addMessageToDOM(s, m.text, opts);
     });
 
     syncEmptyState();
@@ -428,6 +475,24 @@ function addMessageToDOM(speaker, text, opts = {}) {
         body.className = 'comment-body';
         body.appendChild(buildCommentName(speaker, opts.locked));
         body.appendChild(content);
+        div.appendChild(body);
+        attachMessageActions(div, content);
+        messagesContainer.appendChild(div);
+        syncEmptyState();
+        return content;
+    }
+
+    if (isTweetMode()) {
+        if (opts.handle) div.dataset.handle = opts.handle;
+        if (opts.time)   div.dataset.time   = opts.time;
+        if (opts.stats && opts.stats.length) div.dataset.stats = opts.stats.join('|');
+        if (speaker.show_handle === false) div.classList.add('hide-handle');
+        div.appendChild(buildTweetAvatar(speaker));
+        const body = document.createElement('div');
+        body.className = 'tweet-body';
+        body.appendChild(buildTweetHead(speaker, opts));
+        body.appendChild(content);
+        body.appendChild(buildTweetActions(opts));
         div.appendChild(body);
         attachMessageActions(div, content);
         messagesContainer.appendChild(div);
@@ -466,6 +531,104 @@ function isGroupLocked(startEl) {
         el = el.previousElementSibling;
     }
     return false;
+}
+
+// ── 트위터 멘션(트윗) 빌더 ───────────────────────
+const TWEET_ICONS = {
+    reply:    '<path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-8.054 4.46v-3.69h-.067c-4.49.1-8.183-3.51-8.184-8.01zm8.005-6c-3.317 0-6.005 2.69-6.005 6 0 3.37 2.77 6.08 6.138 6.01l.351-.01h1.761v2.3l5.087-2.81c1.951-1.08 3.163-3.13 3.163-5.36 0-3.39-2.744-6.13-6.129-6.13H9.756z"/>',
+    retweet:  '<path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46-4.432 4.14-4.432-4.14 1.364-1.46 2.068 1.93V8c0-1.1-.896-2-2-2z"/>',
+    like:     '<path d="M20.884 13.19c-1.351 2.48-4.001 5.12-8.379 7.67l-.503.3-.504-.3c-4.379-2.55-7.029-5.19-8.382-7.67-1.36-2.5-1.41-4.86-.514-6.67.887-1.79 2.647-2.91 4.601-3.01 1.651-.09 3.368.56 4.798 2.01 1.429-1.45 3.146-2.1 4.796-2.01 1.954.1 3.714 1.22 4.601 3.01.896 1.81.846 4.17-.514 6.67z"/>',
+    view:     '<path d="M8.75 21V3h2v18h-2zM18 21V8.5h2V21h-2zM4 21l.004-10h2L6 21H4z"/>',
+    bookmark: '<path d="M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5zM6.5 4c-.276 0-.5.22-.5.5v14.56l6-4.29 6 4.29V4.5c0-.28-.224-.5-.5-.5h-11z"/>',
+    share:    '<path d="M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z"/>'
+};
+function tweetIconSvg(name) {
+    return `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${TWEET_ICONS[name]}</svg>`;
+}
+
+function buildTweetAvatar(speaker) {
+    const avatar = document.createElement('div');
+    avatar.className = 'tweet-avatar';
+    if (speaker.avatar) {
+        const img = document.createElement('img');
+        img.src = speaker.avatar;
+        img.alt = '';
+        avatar.appendChild(img);
+    }
+    return avatar;
+}
+
+function buildTweetHead(speaker, opts = {}) {
+    const head = document.createElement('div');
+    head.className = 'tweet-head';
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'tweet-name';
+    nameEl.textContent = speaker.name;
+    head.appendChild(nameEl);
+
+    if (opts.locked) {
+        const lock = document.createElement('span');
+        lock.className = 'tweet-lock';
+        lock.title = '잠긴 계정';
+        lock.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1.75c-2.9 0-5.25 2.35-5.25 5.25v2.5H5.5c-1.24 0-2.25 1.01-2.25 2.25v7.5c0 1.24 1.01 2.25 2.25 2.25h13c1.24 0 2.25-1.01 2.25-2.25v-7.5c0-1.24-1.01-2.25-2.25-2.25h-1.25v-2.5c0-2.9-2.35-5.25-5.25-5.25zm3.25 7.75h-6.5v-2.5c0-1.79 1.46-3.25 3.25-3.25s3.25 1.46 3.25 3.25v2.5z"/></svg>';
+        head.appendChild(lock);
+    }
+
+    const handleText = opts.handle || '';
+    const timeText   = opts.time   || '';
+    if (handleText || timeText) {
+        const meta = document.createElement('span');
+        meta.className = 'tweet-meta';
+        if (handleText) {
+            const h = document.createElement('span');
+            h.className = 'tweet-handle';
+            h.textContent = handleText;
+            meta.appendChild(h);
+        }
+        if (handleText && timeText) {
+            const sep = document.createElement('span');
+            sep.className = 'tweet-sep';
+            sep.textContent = ' · ';
+            meta.appendChild(sep);
+        }
+        if (timeText) {
+            const d = document.createElement('span');
+            d.className = 'tweet-date';
+            d.textContent = timeText;
+            meta.appendChild(d);
+        }
+        head.appendChild(meta);
+    }
+    return head;
+}
+
+function buildTweetActions(opts = {}) {
+    const stats = Array.isArray(opts.stats) ? opts.stats.slice(0, 4) : [];
+    // 맨 마지막 수치는 항상 조회수, 앞에서부터 답글 / 리트윗 / 좋아요
+    let reply = '', retweet = '', like = '', view = '';
+    if      (stats.length === 1) { [view] = stats; }
+    else if (stats.length === 2) { [reply, view] = stats; }
+    else if (stats.length === 3) { [reply, retweet, view] = stats; }
+    else if (stats.length >= 4) { [reply, retweet, like, view] = stats; }
+
+    const bar = document.createElement('div');
+    bar.className = 'tweet-actions';
+    const mk = (icon, count) => {
+        const el = document.createElement('span');
+        el.className = 'tweet-act';
+        el.innerHTML = tweetIconSvg(icon) + (count ? `<span class="tweet-count">${count}</span>` : '');
+        return el;
+    };
+    bar.append(
+        mk('reply', reply),
+        mk('retweet', retweet),
+        mk('like', like),
+        mk('view', view),
+        mk('bookmark', ''),
+        mk('share', '')
+    );
+    return bar;
 }
 
 function buildCommentAvatar(speaker) {
@@ -521,7 +684,7 @@ function buildMessageHeader(speaker, locked) {
 }
 
 // ── 이미지 메시지 DOM 생성 ───────────────────────
-function addImageToDOM(speaker, src) {
+function addImageToDOM(speaker, src, opts = {}) {
     const div = document.createElement('div');
     div.classList.add('message', `speaker-${speaker.id}`);
 
@@ -540,6 +703,24 @@ function addImageToDOM(speaker, src) {
         body.className = 'comment-body';
         body.appendChild(buildCommentName(speaker));
         body.appendChild(wrap);
+        div.appendChild(body);
+        attachMessageActions(div, null);
+        messagesContainer.appendChild(div);
+        syncEmptyState();
+        return;
+    }
+
+    if (isTweetMode()) {
+        if (opts.handle) div.dataset.handle = opts.handle;
+        if (opts.time)   div.dataset.time   = opts.time;
+        if (opts.stats && opts.stats.length) div.dataset.stats = opts.stats.join('|');
+        if (speaker.show_handle === false) div.classList.add('hide-handle');
+        div.appendChild(buildTweetAvatar(speaker));
+        const body = document.createElement('div');
+        body.className = 'tweet-body';
+        body.appendChild(buildTweetHead(speaker, opts));
+        body.appendChild(wrap);
+        body.appendChild(buildTweetActions(opts));
         div.appendChild(body);
         attachMessageActions(div, null);
         messagesContainer.appendChild(div);
@@ -656,7 +837,7 @@ function deleteMessage(msgEl) {
 }
 
 function rebuildMessageHeaders() {
-    if (isCommentMode()) return;
+    if (isCommentMode() || isTweetMode()) return;
     messagesContainer.querySelectorAll('.message-header').forEach(h => h.remove());
     const msgs = [...messagesContainer.querySelectorAll('.message')];
     msgs.forEach(m => m.classList.remove('is-last-message'));
@@ -776,6 +957,71 @@ function parsePastedLines(lines) {
         });
         flushMsgs();
 
+    } else if (currentLogType === 'twitter_mention') {
+        // 닉네임 → @아이디 → · → 시간 → 내용 → (반응 수)
+        const raw = lines.map(l => l.trim()).filter(l => l.length > 0);
+        const handleRe = /^@[A-Za-z0-9_]{1,20}(\s*·.*)?$/;
+        const timeRe = /^(\d{4}년\s*)?(\d{1,2}월\s*\d{1,2}일|\d+초|\d+분|\d+시간|\d+일|\d+주|어제|그저께|오전\s*\d{1,2}:\d{2}|오후\s*\d{1,2}:\d{2}|\d{1,2}:\d{2}|[A-Za-z]{3}\s+\d{1,2}(,\s*\d{4})?)$/;
+        const uiSkip = new Set(['답글', '리트윗', '재게시', '인용', '마음에 들어요', '좋아요', '더 보기', '번역', '번역하기', '게시물 번역', '북마크', '공유하기', '팔로우', '팔로잉', '모든 활동 보기', '참여도 보기']);
+        const countRe = /^[\d][\d.,]*\s*(천|만|억|K|M|B)?$/i;
+        // 이름 줄과 @아이디 줄 사이에 낄 수 있는 배지 (값: 잠긴 계정 여부)
+        const NAME_BADGE = { '인증됨': false, 'Verified account': false, '잠긴 계정': true, '보호된 계정': true, 'Protected account': true };
+
+        const isHandle = s => handleRe.test(s);
+        const nameStart = hi => {
+            let ni = hi - 1;
+            while (ni > 0 && Object.prototype.hasOwnProperty.call(NAME_BADGE, raw[ni])) ni--;
+            return ni;
+        };
+
+        const handleIdx = [];
+        raw.forEach((s, i) => { if (i > 0 && isHandle(s)) handleIdx.push(i); });
+
+        handleIdx.forEach((hi, k) => {
+            const ni = nameStart(hi);
+            const name = raw[ni];
+            if (!name || isHandle(name) || timeRe.test(name)) return;
+
+            let locked = false;
+            for (let x = ni + 1; x < hi; x++) {
+                if (NAME_BADGE[raw[x]]) locked = true;
+            }
+
+            // @아이디 [· 시간] 분리
+            const parts = raw[hi].split(/\s*·\s*/);
+            let handle = parts[0].trim();
+            let time   = parts.slice(1).join(' · ').trim();
+
+            // @아이디 다음의 · / 시간 줄 건너뛰기
+            let j = hi + 1;
+            while (j < raw.length) {
+                const s = raw[j].replace(/^[·•]\s*/, '').trim();
+                if (s === '') { j++; continue; }
+                if (!time && timeRe.test(s)) { time = s; j++; continue; }
+                if (time && timeRe.test(s)) { j++; continue; }
+                break;
+            }
+
+            const end = (k + 1 < handleIdx.length) ? nameStart(handleIdx[k + 1]) : raw.length;
+
+            const contentLines = [];
+            const stats = [];
+            for (let x = j; x < end; x++) {
+                const s = raw[x];
+                if (uiSkip.has(s)) continue;
+                if (countRe.test(s)) { stats.push(s.replace(/\s+/g, '')); continue; }
+                if (/조회/.test(s)) {
+                    const m = s.match(/[\d.,]+\s*(천|만|억|K|M|B)?/i);
+                    if (m) stats.push(m[0].replace(/\s+/g, ''));
+                    continue;
+                }
+                contentLines.push(s);
+            }
+
+            const text = contentLines.join('\n').trim();
+            if (text) results.push({ speakerName: name, text, handle, time, stats: stats.slice(0, 4), locked });
+        });
+
     } else if (currentLogType === 'band_comment') {
         const UI_SKIP = new Set(['표정짓기', '답글쓰기', '댓글 수정', '댓글']);
         const isDateLine = t => /^\d{1,2}월\s+\d{1,2}일\s+(오전|오후)\s+\d{1,2}:\d{2}/.test(t)
@@ -857,9 +1103,9 @@ function handlePaste(event) {
     const missed  = new Set();
 
     if (parsed.length > 0) {
-        parsed.forEach(({ speakerName, text, locked }) => {
+        parsed.forEach(({ speakerName, text, locked, handle, time, stats }) => {
             const s = speakers.find(s => s.name === speakerName);
-            if (s) { addMessageToDOM(s, text, { locked }); }
+            if (s) { addMessageToDOM(s, text, { locked, handle, time, stats }); }
             else   { missed.add(speakerName); }
         });
         if (missed.size > 0) showToast(`미등록 발화자: ${[...missed].join(', ')}`);
@@ -878,7 +1124,11 @@ function buildBackupHtml() {
     msgs.forEach(m => {
         const clone = m.cloneNode(true);
         clone.querySelectorAll('.msg-actions').forEach(a => a.remove());
-        html += `<div class="${[...m.classList].join(' ')}">${clone.innerHTML}</div>\n`;
+        const dataAttrs = [...m.attributes]
+            .filter(a => a.name.startsWith('data-'))
+            .map(a => ` ${a.name}="${a.value.replace(/"/g, '&quot;')}"`)
+            .join('');
+        html += `<div class="${[...m.classList].join(' ')}"${dataAttrs}>${clone.innerHTML}</div>\n`;
     });
 
     const fixedStaticCss = `
@@ -897,13 +1147,36 @@ function buildBackupHtml() {
             .comment-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
             .comment-body { flex: 1; min-width: 0; }
             .comment-name { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 3px; }
-            .messages.comment-mode .msg-text { color: #111827 !important; }`;
+            .messages.comment-mode .msg-text { color: #111827 !important; }
+            .messages.tweet-mode { gap: 0; }
+            .messages.tweet-mode .message { display: flex; align-items: flex-start; align-self: stretch !important; gap: 11px; max-width: 100% !important; padding: 11px 4px 8px; margin: 0; border-radius: 0; background: none !important; position: relative; white-space: normal; }
+            .messages.tweet-mode .message:not(:last-child) { border-bottom: 1px solid rgba(0,0,0,0.08); }
+            .messages.tweet-mode .message::before { content: ''; position: absolute; left: 23px; top: 0; bottom: 0; width: 2px; background: rgba(0,0,0,0.12); }
+            .messages.tweet-mode .message:first-child::before { top: 52px; }
+            .messages.tweet-mode .message:last-child::before { bottom: auto; height: 11px; }
+            .messages.tweet-mode .message:first-child:last-child::before { display: none; }
+            .tweet-avatar { width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; background: #e5e7eb; overflow: hidden; position: relative; z-index: 1; }
+            .tweet-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+            .tweet-body { flex: 1; min-width: 0; }
+            .tweet-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 14px; line-height: 1.3; margin-bottom: 2px; }
+            .tweet-name { font-weight: 700; color: #0f1419; }
+            .tweet-lock { display: inline-flex; color: #536471; }
+            .tweet-meta { font-weight: 400; color: #536471; }
+            .message.hide-handle .tweet-handle, .message.hide-handle .tweet-sep { display: none; }
+            .messages.tweet-mode .msg-text { color: #0f1419 !important; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+            .tweet-actions { display: flex; align-items: center; justify-content: space-between; max-width: 440px; margin-top: 10px; color: #536471; }
+            .tweet-act { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: #536471; }
+            .tweet-act svg { width: 17px; height: 17px; display: block; }
+            .tweet-count { font-size: 12.5px; color: #536471; }`;
 
     const isComment = messagesContainer.classList.contains('comment-mode');
+    const isTweet   = messagesContainer.classList.contains('tweet-mode');
+    const modeClass = isComment ? ' comment-mode' : isTweet ? ' tweet-mode' : '';
     let speakerCss = '';
     for (const s of speakers) {
         speakerCss += `
-                    .speaker-${s.id} .comment-avatar { background-color: ${s.color}; }`;
+                    .speaker-${s.id} .comment-avatar,
+                    .speaker-${s.id} .tweet-avatar { background-color: ${s.color}; }`;
         if (s.id === 0) {
             speakerCss += `
                     .speaker-0 { align-self: flex-end; background-color: ${s.color}; color: ${s.text_color || '#ffffff'}; }
@@ -928,7 +1201,7 @@ ${speakerCss}
 </head>
 <body class="backup-body">
     <div class="chat-container">
-        <div class="messages${isComment ? ' comment-mode' : ''}">
+        <div class="messages${modeClass}">
 ${html}
         </div>
     </div>
@@ -1001,6 +1274,7 @@ function loadBackupFile(file) {
         }
 
         messagesContainer.classList.toggle('comment-mode', !!doc.querySelector('.messages.comment-mode'));
+        messagesContainer.classList.toggle('tweet-mode', !!doc.querySelector('.messages.tweet-mode'));
 
         Array.from(messagesContainer.children).forEach(el => {
             if (el.id !== 'empty-state') messagesContainer.removeChild(el);
@@ -1027,7 +1301,7 @@ function loadBackupFile(file) {
         });
 
         messagesContainer.querySelectorAll('.message').forEach(msgEl => {
-            const imgEl  = msgEl.querySelector('img.msg-image, img');
+            const imgEl  = msgEl.querySelector('img.msg-image, .msg-img-wrap img');
             if (imgEl) {
                 imgEl.classList.add('msg-image');
                 imgEl.addEventListener('click', () => openLightbox(imgEl.src));

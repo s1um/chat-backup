@@ -146,6 +146,78 @@ body {
 .messages.comment-mode .msg-text { color: var(--text-1); }
 .messages.comment-mode .msg-actions { left: auto; right: 0; }
 
+/* ═══ 트위터 멘션 모드 (말풍선 → 트윗 스레드) ═══ */
+.messages.tweet-mode { gap: 0; }
+.messages.tweet-mode .message {
+    display: flex;
+    align-items: flex-start;
+    align-self: stretch;
+    gap: 11px;
+    max-width: 100%;
+    padding: 11px 4px 8px;
+    margin: 0;
+    border-radius: 0;
+    background: none;
+    animation: none;
+    position: relative;
+    white-space: normal;
+}
+.messages.tweet-mode .message:not(:last-child) { border-bottom: 1px solid var(--border); }
+/* 스레드 세로선 (아바타 중심 관통) */
+.messages.tweet-mode .message::before {
+    content: '';
+    position: absolute;
+    left: 23px;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--border-md);
+}
+.messages.tweet-mode .message:first-child::before { top: 52px; }
+.messages.tweet-mode .message:last-child::before  { bottom: auto; height: 11px; }
+.messages.tweet-mode .message:first-child:last-child::before { display: none; }
+
+.tweet-avatar {
+    width: 40px; height: 40px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--bg-hover);
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+}
+.tweet-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tweet-body { flex: 1; min-width: 0; }
+.tweet-head {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: 4px;
+    font-size: 14px; line-height: 1.3;
+    margin-bottom: 2px;
+}
+.tweet-name { font-weight: 700; color: var(--text-1); }
+.tweet-lock { display: inline-flex; color: var(--text-2); }
+.tweet-meta { font-weight: 400; color: var(--text-2); }
+.message.hide-handle .tweet-handle,
+.message.hide-handle .tweet-sep { display: none; }
+.messages.tweet-mode .msg-text {
+    color: var(--text-1);
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+.tweet-actions {
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: 440px;
+    margin-top: 10px;
+    color: var(--text-3);
+}
+.tweet-act {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12.5px; color: var(--text-3);
+}
+.tweet-act svg { width: 17px; height: 17px; display: block; }
+.tweet-count { font-size: 12.5px; color: var(--text-3); }
+.messages.tweet-mode .msg-actions { left: auto; right: 0; }
+
 /* 빈 상태 */
 .empty-state {
     flex: 1; display: flex; flex-direction: column;
@@ -359,6 +431,19 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
 .chip-name-toggle:hover { background: var(--accent-lite); color: var(--accent); }
 .chip-name-toggle.hidden { color: var(--text-3); opacity: 0.45; }
 .chip-name-toggle svg { width: 11px; height: 11px; }
+/* 아이디(@핸들) 표시 토글 버튼 (트위터 멘션) */
+.chip-handle-toggle {
+    width: 16px; height: 16px;
+    border: none; border-radius: 50%;
+    background: transparent; color: var(--text-3);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; padding: 0;
+    font-size: 11px; font-weight: 700; line-height: 1;
+    transition: background var(--ease), color var(--ease);
+}
+.chip-handle-toggle:hover { background: var(--accent-lite); color: var(--accent); }
+.chip-handle-toggle.hidden { opacity: 0.4; text-decoration: line-through; }
 
 /* PNG 변환 오버레이 */
 #png-loading {
