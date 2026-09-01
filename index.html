@@ -78,10 +78,16 @@
             <div class="section-label">로그 종류</div>
             <div class="log-type-tabs">
                 <button class="log-tab active" data-type="kakao">카카오톡</button>
-                <button class="log-tab" data-type="twitter">트위터 DM</button>
-                <button class="log-tab" data-type="twitter_mention">트위터 멘션</button>
-                <button class="log-tab" data-type="band">밴드 채팅</button>
-                <button class="log-tab" data-type="band_comment">밴드 댓글</button>
+                <div class="log-tab-group">
+                    <span class="log-tab-group-label">트위터</span>
+                    <button class="log-tab" data-type="twitter">DM</button>
+                    <button class="log-tab" data-type="twitter_mention">멘션</button>
+                </div>
+                <div class="log-tab-group">
+                    <span class="log-tab-group-label">밴드</span>
+                    <button class="log-tab" data-type="band">채팅</button>
+                    <button class="log-tab" data-type="band_comment">댓글</button>
+                </div>
             </div>
             <div class="log-hint" id="log-hint"></div>
         </div>

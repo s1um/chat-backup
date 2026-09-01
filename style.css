@@ -324,20 +324,29 @@ body {
 select.field { cursor: pointer; }
 
 /* 로그 종류 탭 */
-.log-type-tabs { display: flex; gap: 5px; flex-wrap: wrap; }
+.log-type-tabs { display: flex; flex-direction: column; gap: 6px; }
 .log-tab {
     flex: 1; min-width: 0;
-    padding: 7px 4px;
+    padding: 8px 10px;
     border: 1px solid var(--border-md);
     border-radius: var(--r-sm);
     background: var(--bg-input);
     color: var(--text-2);
-    font-family: var(--font); font-size: 11px; font-weight: 500;
+    font-family: var(--font); font-size: 12px; font-weight: 500;
     cursor: pointer; text-align: center; white-space: nowrap;
     transition: all var(--ease);
 }
+.log-type-tabs > .log-tab { width: 100%; }
+.log-tab-group { display: flex; align-items: stretch; gap: 6px; }
+.log-tab-group-label {
+    flex-shrink: 0;
+    display: flex; align-items: center;
+    width: 40px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
+    color: var(--text-3);
+}
 .log-tab:hover { background: var(--bg-hover); color: var(--text-1); }
-.log-tab.active { background: var(--accent-lite); border-color: rgba(99,102,241,0.3); color: var(--accent); font-weight: 600; }
+.log-tab.active { background: var(--accent-lite); border-color: rgba(99,102,241,0.35); color: var(--accent); font-weight: 700; }
 
 .log-hint {
     margin-top: 8px; padding: 8px 10px;
