@@ -712,6 +712,51 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
     border-radius: var(--r-md) !important;
 }
 
+/* ── 피드백 (컨트롤 패널) ── */
+.feedback-desc {
+    font-size: 10.5px; color: var(--text-3); line-height: 1.6;
+    margin-bottom: 9px;
+}
+.feedback-links { display: flex; flex-direction: column; gap: 6px; }
+.feedback-links a {
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-md);
+    border-radius: var(--r-sm);
+    font-size: 11.5px; color: var(--text-2);
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.feedback-links a:hover {
+    background: var(--accent-lite);
+    border-color: rgba(99,102,241,0.35);
+    color: var(--accent);
+}
+.feedback-links a svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* ── 피드백 (웰컴 모달) ── */
+.welcome-feedback {
+    padding: 12px 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    margin-bottom: 20px;
+}
+.welcome-feedback-desc {
+    font-size: 12px; color: var(--text-2); line-height: 1.6;
+    margin-bottom: 10px;
+}
+.welcome-feedback-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.welcome-feedback-links a {
+    padding: 6px 12px;
+    background: var(--accent-lite);
+    border-radius: var(--r-sm);
+    font-size: 12px; font-weight: 600; color: var(--accent);
+    text-decoration: none;
+}
+.welcome-feedback-links a:hover { text-decoration: underline; }
+
 @media (max-width: 640px) {
     body { padding: 0; align-items: stretch; }
 
