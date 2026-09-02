@@ -762,6 +762,11 @@ function attachMessageActions(msgEl, textEl) {
     const actions = document.createElement('div');
     actions.className = 'msg-actions';
 
+    const dragBtn = document.createElement('button');
+    dragBtn.className = 'msg-btn msg-drag-btn';
+    dragBtn.title = '드래그하여 순서 변경';
+    dragBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.6"/><circle cx="16" cy="6" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="18" r="1.6"/><circle cx="16" cy="18" r="1.6"/></svg>';
+
     const editBtn = document.createElement('button');
     editBtn.className = 'msg-btn msg-edit-btn';
     editBtn.title = '편집 (더블클릭)';
@@ -772,8 +777,10 @@ function attachMessageActions(msgEl, textEl) {
     delBtn.title = '삭제';
     delBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
 
-    actions.append(editBtn, delBtn);
+    actions.append(dragBtn, editBtn, delBtn);
     msgEl.prepend(actions);
+
+    dragBtn.addEventListener('pointerdown', e => startMessageDrag(e, msgEl));
 
     if (textEl) {
         editBtn.addEventListener('click', e => { e.stopPropagation(); enableEdit(textEl); });
@@ -858,6 +865,86 @@ function rebuildMessageHeaders() {
             }
         }
     });
+}
+
+// ── 메시지 드래그 정렬 ────────────────────────────
+let autoScrollSpeed = 0;
+let autoScrollRAF   = null;
+
+function startMessageDrag(e, msgEl) {
+    if (typeof e.button === 'number' && e.button !== 0) return;
+    if (msgEl.classList.contains('editing')) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 헤더는 그룹(연속 발화자) 경계에 붙어있어 이동 중 위치가 꼬이므로 드래그 중엔 제거하고 완료 후 재생성
+    messagesContainer.querySelectorAll('.message-header').forEach(h => h.remove());
+
+    const pointerId = e.pointerId;
+    try { msgEl.setPointerCapture(pointerId); } catch (_) {}
+    msgEl.classList.add('dragging');
+    messagesContainer.classList.add('drag-active');
+
+    function reorder(clientY) {
+        const others = [...messagesContainer.querySelectorAll('.message')].filter(m => m !== msgEl);
+        let closest = null, closestDist = Infinity, after = false;
+        others.forEach(el => {
+            const rect = el.getBoundingClientRect();
+            const mid  = rect.top + rect.height / 2;
+            const dist = Math.abs(clientY - mid);
+            if (dist < closestDist) { closestDist = dist; closest = el; after = clientY > mid; }
+        });
+        if (!closest) return;
+        if (after) { if (closest.nextElementSibling !== msgEl) closest.after(msgEl); }
+        else       { if (closest.previousElementSibling !== msgEl) closest.before(msgEl); }
+    }
+
+    function onMove(ev) {
+        ev.preventDefault();
+        updateAutoScroll(ev.clientY);
+        reorder(ev.clientY);
+    }
+
+    function onUp() {
+        try { msgEl.releasePointerCapture(pointerId); } catch (_) {}
+        msgEl.classList.remove('dragging');
+        messagesContainer.classList.remove('drag-active');
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+        stopAutoScroll();
+        rebuildMessageHeaders();
+        syncEmptyState();
+    }
+
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+}
+
+function updateAutoScroll(clientY) {
+    const rect = messagesContainer.getBoundingClientRect();
+    const edge = 50;
+    if (clientY < rect.top + edge) {
+        autoScrollSpeed = -Math.max(2, (rect.top + edge - clientY) / 3);
+    } else if (clientY > rect.bottom - edge) {
+        autoScrollSpeed = Math.max(2, (clientY - (rect.bottom - edge)) / 3);
+    } else {
+        autoScrollSpeed = 0;
+    }
+    if (autoScrollSpeed !== 0 && !autoScrollRAF) {
+        const step = () => {
+            if (autoScrollSpeed === 0) { autoScrollRAF = null; return; }
+            messagesContainer.scrollTop += autoScrollSpeed;
+            autoScrollRAF = requestAnimationFrame(step);
+        };
+        autoScrollRAF = requestAnimationFrame(step);
+    }
+}
+
+function stopAutoScroll() {
+    autoScrollSpeed = 0;
+    if (autoScrollRAF) { cancelAnimationFrame(autoScrollRAF); autoScrollRAF = null; }
 }
 
 // ── 메시지 전송 ───────────────────────────────────

@@ -558,6 +558,19 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
 }
 .message.editing { z-index: 5; }
 
+/* 메시지 드래그 정렬 */
+.msg-drag-btn { cursor: grab; touch-action: none; }
+.msg-drag-btn:active { cursor: grabbing; }
+.message.dragging {
+    opacity: 0.55;
+    box-shadow: var(--shadow-md);
+    z-index: 20;
+    cursor: grabbing;
+}
+.messages.drag-active { cursor: grabbing; }
+.messages.drag-active .msg-actions { display: none !important; }
+.messages.drag-active, .messages.drag-active * { user-select: none; }
+
 /* ═══ 웰컴 모달 ═══ */
 .welcome-overlay {
     display: none;
