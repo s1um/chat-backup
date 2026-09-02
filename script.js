@@ -7,7 +7,7 @@ const LOG_TYPES = {
     },
     twitter: {
         label: '트위터 DM',
-        hint: `<b>형식 A:</b> 이름 TAB 메시지 TAB 시간 (탭 구분)<br><b>형식 B:</b> [이름] → 메시지(여러 줄 가능) → 오전/오후 h:mm<br>타임스탬프가 발화자 구분 기준 — 타임스탬프마다 다음 발화자로 전환됩니다.`,
+        hint: `<b>형식 A:</b> 이름 TAB 메시지 TAB 시간 (탭 구분)<br><b>형식 B:</b> [이름] → 메시지(여러 줄 가능) → 오전/오후 h:mm<br>타임스탬프가 발화자 구분 기준 — 타임스탬프마다 다음 발화자로 전환됩니다.<br>지금 선택한 발화자가 첫 번째로 파싱됩니다.`,
         regexTab:   /^(.+?)\t(.+?)(?:\t.+)?$/,
         timeRe:     /^(오전|오후)\s+\d{1,2}:\d{2}$/
     },
@@ -891,8 +891,9 @@ function parsePastedLines(lines) {
         const fallbackName = speakers.find(s => s.id === getCurrentSpeakerId())?.name ?? null;
 
         const ring        = speakers.map(s => s.name);
-        let ringIdx       = 0;
-        let currentSpeaker = ring[0] ?? fallbackName;
+        // 현재 선택된 발화자부터 파싱 시작 (첫 타임스탬프 블록 = 선택된 발화자)
+        let ringIdx       = Math.max(0, ring.indexOf(fallbackName));
+        let currentSpeaker = fallbackName ?? ring[0];
         let pendingMsgs   = [];
         let expectName    = true;
 
