@@ -24,6 +24,17 @@ const LOG_TYPES = {
     band_comment: {
         label: '밴드 댓글',
         hint: `<b>형식:</b> 이름 → 내용 <br>밴드 게시글 댓글을 그대로 긁어서 붙여넣으세요.<br>날짜를 기준으로 댓글 내용을 구분합니다.`
+    },
+    naver: {
+        label: '네이버 채팅',
+        hint: `<b>상대방:</b> (프로필 이미지) → 이름 → 내용<br><b>나:</b> 이름 없이 내용만<br>빈 줄·시간(<code>오전/오후 h:mm</code>)으로 메시지를 구분합니다.`,
+        timeRe: /^(오전|오후)\s*\d{1,2}:\d{2}$/,
+        dateRe: /^\d{4}(년|\.)\s*\d{1,2}(월|\.)\s*\d{1,2}(일|\.)?.*$/
+    },
+    naver_comment: {
+        label: '네이버 댓글',
+        hint: `<b>형식:</b> (프로필 사진) → 이름 → 내용 → <code>yyyy.mm.dd. hh:mm</code><br>네이버 카페·블로그 댓글을 그대로 긁어서 붙여넣으세요.<br>날짜를 기준으로 댓글 내용을 구분합니다.`,
+        dateRe: /^\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.?\s+\d{1,2}:\d{2}$/
     }
 };
 
@@ -77,7 +88,8 @@ function initLogTabs() {
     updateLogHint();
 }
 function currentRenderMode() {
-    if (currentLogType === 'band_comment')    return 'comment';
+    if (currentLogType === 'band_comment' ||
+        currentLogType === 'naver_comment')   return 'comment';
     if (currentLogType === 'twitter_mention') return 'tweet';
     return 'bubble';
 }
@@ -1151,6 +1163,71 @@ function parsePastedLines(lines) {
             else if (state === 2) { contentLines.push(t); }
         }
         if (state === 2) flushContent();
+
+    } else if (currentLogType === 'naver') {
+        // 상대방: (프로필 이미지) → 이름 → 내용 / 나: 내용만
+        // 빈 줄·시간·날짜 줄로 메시지 블록을 구분
+        const { timeRe, dateRe } = LOG_TYPES.naver;
+        const selfName = speakers.find(s => s.id === 0)?.name;
+
+        const blocks = [];
+        let block = null;
+        const closeBlock = () => { if (block && block.lines.length) blocks.push(block); block = null; };
+
+        for (const line of lines) {
+            const t = line.trim();
+            if (!t || timeRe.test(t) || dateRe.test(t)) { closeBlock(); continue; }
+            if (t === '프로필 이미지') { closeBlock(); block = { profile: true, lines: [] }; continue; }
+            if (!block) block = { profile: false, lines: [] };
+            block.lines.push(t);
+        }
+        closeBlock();
+
+        blocks.forEach((b, i) => {
+            // 첫 블록은 프로필 이미지 없이 '이름 → 내용'으로 시작할 수 있음
+            const hasName = b.profile || (i === 0 && b.lines.length >= 2);
+            if (hasName) {
+                const [name, ...rest] = b.lines;
+                const text = rest.join('\n');
+                if (text) results.push({ speakerName: name, text });
+            } else if (selfName) {
+                results.push({ speakerName: selfName, text: b.lines.join('\n') });
+            }
+        });
+
+    } else if (currentLogType === 'naver_comment') {
+        const { dateRe } = LOG_TYPES.naver_comment;
+        const UI_SKIP = new Set(['작성자']);
+
+        let skipping = false;   // '답글쓰기' ~ '프로필 사진' 사이는 무시
+        let currentName = null;
+        let contentLines = [];
+
+        const flushContent = () => {
+            if (currentName && contentLines.length > 0) {
+                const rawText = contentLines.join('\n');
+                const locked  = /^비밀\s*댓글/.test(rawText);
+                const text    = locked ? rawText.replace(/^비밀\s*댓글(입니다)?[.:\s]*/, '').trim() : rawText;
+                results.push({ speakerName: currentName, text, locked });
+            }
+            currentName = null;
+            contentLines = [];
+        };
+
+        for (const line of lines) {
+            const t = line.trim();
+            if (!t) continue;
+
+            if (t === '답글쓰기')   { flushContent(); skipping = true;  continue; }
+            if (t === '프로필 사진') { skipping = false; continue; }
+            if (skipping || UI_SKIP.has(t)) continue;
+
+            if (dateRe.test(t)) { flushContent(); continue; }
+
+            if (currentName === null) currentName = t;
+            else                      contentLines.push(t);
+        }
+        flushContent();
 
     } else if (currentLogType === 'band') {
         const { timeRe, dateLineRe } = LOG_TYPES.band;
