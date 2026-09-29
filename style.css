@@ -229,7 +229,7 @@ body {
 
 /* 채팅 입력 바 */
 .chat-input-bar {
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: flex-end; gap: 8px;
     padding: 10px 14px;
     border-top: 1px solid var(--border);
     flex-shrink: 0; background: var(--bg-chat);

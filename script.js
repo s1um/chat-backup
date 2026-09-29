@@ -968,7 +968,15 @@ function sendMessage() {
     addMessageToDOM(s, text);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
     messageInput.value = '';
+    autoResizeInput();
     messageInput.focus();
+}
+
+// 입력 내용에 맞춰 높이 조절 (max-height 이후엔 스크롤)
+function autoResizeInput() {
+    messageInput.style.height = 'auto';
+    const border = messageInput.offsetHeight - messageInput.clientHeight;
+    messageInput.style.height = (messageInput.scrollHeight + border) + 'px';
 }
 
 // ── 로그 파싱 (로그 종류별) ───────────────────────
@@ -1526,7 +1534,13 @@ speakerSelect.addEventListener('change',    () => { loadSpeakerSettings(); updat
 bubbleColorInput.addEventListener('input',  () => updateSpeakerColor('bubble'));
 textColorInput.addEventListener('input',    () => updateSpeakerColor('text'));
 nameColorInput.addEventListener('input',    () => updateSpeakerColor('name'));
-messageInput.addEventListener('keypress',   e => { if (e.key === 'Enter') sendMessage(); });
+messageInput.addEventListener('keydown',    e => {
+    // Shift+Enter는 줄바꿈, 한글 조합 중 Enter는 무시
+    if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+    e.preventDefault();
+    sendMessage();
+});
+messageInput.addEventListener('input',      autoResizeInput);
 messageInput.addEventListener('paste',      handlePaste);
 
 // ── 모바일 패널 드로어 ────────────────────────────
