@@ -1514,12 +1514,43 @@ document.getElementById('img-upload-input').addEventListener('change', e => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-        const s = speakers.find(s => s.id === getCurrentSpeakerId());
-        if (s) { addImageToDOM(s, ev.target.result); messagesContainer.scrollTop = messagesContainer.scrollHeight; }
+        compressImage(ev.target.result, file.type, src => {
+            const s = speakers.find(s => s.id === getCurrentSpeakerId());
+            if (s) { addImageToDOM(s, src); messagesContainer.scrollTop = messagesContainer.scrollHeight; }
+        });
     };
     reader.readAsDataURL(file);
     e.target.value = '';
 });
+
+// ── 이미지 축소·압축 (기본 긴 변 1024px, WebP) ──
+// 백업 HTML에 base64로 들어가므로 용량을 줄인다. GIF는 애니메이션 유지를 위해 원본 사용.
+function compressImage(dataUrl, mimeType, callback, maxSide = 1024) {
+    const QUALITY  = 0.8;
+    if (mimeType === 'image/gif') { callback(dataUrl); return; }
+
+    const img = new Image();
+    img.onload = () => {
+        const scale  = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(img.width  * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        let out = canvas.toDataURL('image/webp', QUALITY);
+        // WebP 미지원 브라우저는 PNG를 돌려주므로 JPEG로 대체 (투명 배경은 흰색으로)
+        if (!out.startsWith('data:image/webp')) {
+            const ctx = canvas.getContext('2d');
+            ctx.globalCompositeOperation = 'destination-over';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            out = canvas.toDataURL('image/jpeg', QUALITY);
+        }
+        callback(out.length < dataUrl.length ? out : dataUrl);
+    };
+    img.onerror = () => callback(dataUrl);
+    img.src = dataUrl;
+}
 document.getElementById('img-lightbox').addEventListener('click', () => {
     document.getElementById('img-lightbox').classList.remove('show');
 });
@@ -1528,7 +1559,8 @@ avatarUploadInput.addEventListener('change', e => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => setSpeakerAvatar(getCurrentSpeakerId(), ev.target.result);
+    const speakerId = getCurrentSpeakerId();
+    reader.onload = ev => compressImage(ev.target.result, file.type, src => setSpeakerAvatar(speakerId, src), 128);
     reader.readAsDataURL(file);
     e.target.value = '';
 });
