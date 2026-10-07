@@ -273,7 +273,7 @@ body {
 #img-upload-btn svg { width: 15px; height: 15px; }
 .msg-img-wrap { line-height: 0; }
 .msg-image {
-    max-width: 220px; max-height: 300px;
+    max-width: min(220px, 100%); max-height: 300px;
     border-radius: 10px; display: block;
     cursor: pointer;
 }
@@ -792,7 +792,7 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
     /* 메시지 영역 */
     .messages { padding: 12px 10px; }
     .message { font-size: 14px; max-width: 80%; }
-    .msg-image { max-width: 180px; }
+    .msg-image { max-width: min(180px, 100%); }
 
     /* 입력 바 */
     .chat-input-bar { padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }

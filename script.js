@@ -1313,6 +1313,9 @@ function buildBackupHtml() {
             .header-avatar { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex-shrink: 0; display: block; }
             .header-lock { display: flex; align-items: center; color: #9ca3af; flex-shrink: 0; }
             .system-message { text-align: center; color: #6c757d; font-size: 12px; margin: 10px 0; }
+            .msg-img-wrap { line-height: 0; }
+            .msg-image { max-width: min(220px, 100%); max-height: 300px; border-radius: 10px; display: block; cursor: pointer; }
+            .message:has(.msg-image) { padding: 5px; }
             .messages.comment-mode { gap: 0; }
             .messages.comment-mode .message { display: flex; align-items: flex-start; align-self: stretch !important; gap: 10px; max-width: 100%; padding: 10px 2px; margin: 0; border-radius: 0; border-bottom: 1px solid rgba(0,0,0,0.08); background: none !important; }
             .messages.comment-mode .message:last-child { border-bottom: none; }
