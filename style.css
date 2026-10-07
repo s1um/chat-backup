@@ -274,10 +274,11 @@ body {
 .msg-img-wrap { line-height: 0; }
 .msg-image {
     max-width: min(220px, 100%); max-height: 300px;
-    border-radius: 10px; display: block;
+    border-radius: 16px; display: block;
     cursor: pointer;
 }
-.message:has(.msg-image) { padding: 5px; }
+/* 사진 메시지는 말풍선 배경 없이 사진 자체가 말풍선 모양이 되도록 */
+.message:has(.msg-image) { padding: 0; background: transparent; }
 /* 이미지 라이트박스 */
 #img-lightbox {
     display: none; position: fixed; inset: 0;
