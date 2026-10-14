@@ -2,8 +2,11 @@
 const LOG_TYPES = {
     kakao: {
         label: '카카오톡',
-        hint: `<b>형식:</b> [이름] [오전/오후 H:MM] 메시지<br>카카오톡 대화 내보내기 로그를 그대로 붙여넣으세요.`,
-        regex: /^\[?(.+?)\]?\s+\[?(오전|오후)?\s*\d{1,2}:\d{2}\]?\s+(.+)$/
+        hint: `<b>형식:</b> [이름] [오전/오후 H:MM] 메시지<br>카카오톡 대화 내보내기 로그를 그대로 붙여넣거나, 컨트롤 패널의 <b>카카오톡 txt 불러오기</b>로 내보낸 파일을 바로 열 수 있습니다.`,
+        regex:     /^\[?(.+?)\]?\s+\[?(오전|오후)?\s*\d{1,2}:\d{2}\]?\s+(.+)$/,
+        dividerRe: /^-{3,}\s*(\d{4}년\s*\d{1,2}월\s*\d{1,2}일.*?)\s*-{3,}$/,
+        titleRe:   /^(.+?)\s*님과 카카오톡 대화$/,
+        savedRe:   /^저장한 날짜\s*:/
     },
     twitter: {
         label: '트위터 DM',
@@ -381,11 +384,17 @@ function updateSpeakerColor(type) {
 function getCurrentSpeakerId() { return parseInt(speakerSelect.value, 10); }
 
 // ── 발화자 추가 ───────────────────────────────────
-function addSpeaker() {
+function createSpeaker(name) {
     const newId  = nextSpeakerId++;
     const colors = getAutoColor(newId);
-    const newS   = { id: newId, name: `상대방 ${speakers.length}`, color: colors.bg, align: 'flex-start', name_color: colors.name, text_color: '#111827', show_name: true, avatar: null };
+    const newS   = { id: newId, name, color: colors.bg, align: 'flex-start', name_color: colors.name, text_color: '#111827', show_name: true, avatar: null };
     speakers.push(newS);
+    return newS;
+}
+
+function addSpeaker() {
+    const newS = createSpeaker(`상대방 ${speakers.length}`);
+    const newId = newS.id;
     updateDynamicStyles(); applyCssVariables();
     updateSpeakerDropdown();
     speakerSelect.value = newId;
@@ -432,7 +441,11 @@ function isTweetMode()   { return currentRenderMode() === 'tweet'; }
 // ── 말풍선 ↔ 댓글 형식 전환 ───────────────────────
 function extractMessagesData() {
     const data = [];
-    messagesContainer.querySelectorAll('.message').forEach(msgEl => {
+    messagesContainer.querySelectorAll('.message, .system-message').forEach(msgEl => {
+        if (msgEl.classList.contains('system-message')) {
+            data.push({ type: 'system', text: msgEl.textContent });
+            return;
+        }
         const sc = [...msgEl.classList].find(c => /^speaker-\d+$/.test(c));
         if (!sc) return;
         const speakerId = parseInt(sc.replace('speaker-', ''), 10);
@@ -462,6 +475,7 @@ function rebuildMessagesInCurrentMode() {
     });
 
     data.forEach(m => {
+        if (m.type === 'system') { addSystemMessageToDOM(m.text); return; }
         const s = speakers.find(sp => sp.id === m.speakerId);
         if (!s) return;
         const opts = { locked: m.locked, handle: m.handle, time: m.time, stats: m.stats };
@@ -515,7 +529,9 @@ function addMessageToDOM(speaker, text, opts = {}) {
     const allMsgs = messagesContainer.getElementsByClassName('message');
     const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : null;
     const lastEl  = messagesContainer.lastElementChild;
-    const isCont  = lastMsg && lastMsg.classList.contains(`speaker-${speaker.id}`);
+    // 날짜 구분선을 사이에 두면 같은 발화자라도 새 그룹으로 시작
+    const isCont  = lastMsg && lastMsg.classList.contains(`speaker-${speaker.id}`)
+                 && !(lastEl && lastEl.classList.contains('system-message'));
 
     if (isCont) {
         lastMsg.classList.remove('is-last-message');
@@ -533,6 +549,15 @@ function addMessageToDOM(speaker, text, opts = {}) {
 
     syncEmptyState();
     return content;
+}
+
+// 날짜 구분선 등 가운데 정렬 안내 문구
+function addSystemMessageToDOM(text) {
+    const div = document.createElement('div');
+    div.className = 'system-message';
+    div.textContent = text;
+    messagesContainer.appendChild(div);
+    return div;
 }
 
 function isGroupLocked(startEl) {
@@ -743,7 +768,9 @@ function addImageToDOM(speaker, src, opts = {}) {
     const allMsgs = messagesContainer.getElementsByClassName('message');
     const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : null;
     const lastEl  = messagesContainer.lastElementChild;
-    const isCont  = lastMsg && lastMsg.classList.contains(`speaker-${speaker.id}`);
+    // 날짜 구분선을 사이에 두면 같은 발화자라도 새 그룹으로 시작
+    const isCont  = lastMsg && lastMsg.classList.contains(`speaker-${speaker.id}`)
+                 && !(lastEl && lastEl.classList.contains('system-message'));
 
     if (isCont) {
         lastMsg.classList.remove('is-last-message');
@@ -863,7 +890,8 @@ function rebuildMessageHeaders() {
 
     msgs.forEach((msg, i) => {
         const sc   = [...msg.classList].find(c => /^speaker-\d+$/.test(c));
-        const next = msgs[i + 1];
+        // 바로 다음 요소가 날짜 구분선이면 그룹이 끊긴 것으로 처리
+        const next = msg.nextElementSibling?.classList.contains('system-message') ? null : msgs[i + 1];
         const nextSc = next ? [...next.classList].find(c => /^speaker-\d+$/.test(c)) : null;
 
         if (sc !== nextSc) {
@@ -980,18 +1008,29 @@ function autoResizeInput() {
 }
 
 // ── 로그 파싱 (로그 종류별) ───────────────────────
+// 카카오톡 로그 → [{ speakerName, text } | { divider }]
+// 날짜 구분선(--- 2026년 10월 14일 수요일 ---)은 divider 항목으로, 내보내기 파일 머리말은 건너뜀
+function parseKakaoLines(lines) {
+    const { regex: re, dividerRe, titleRe, savedRe } = LOG_TYPES.kakao;
+    const results = [];
+    let lastEntry = null;
+    lines.forEach(line => {
+        const t = line.trim(); if (!t) return;
+        const d = t.match(dividerRe);
+        if (d) { results.push({ divider: d[1].trim() }); lastEntry = null; return; }
+        if (!lastEntry && (titleRe.test(t) || savedRe.test(t))) return;
+        const m = t.match(re);
+        if (m) { lastEntry = { speakerName: m[1].trim(), text: m[3].trim() }; results.push(lastEntry); }
+        else if (lastEntry) { lastEntry.text += '\n' + t; }
+    });
+    return results;
+}
+
 function parsePastedLines(lines) {
     const results = [];
 
     if (currentLogType === 'kakao') {
-        const re = LOG_TYPES.kakao.regex;
-        let lastEntry = null;
-        lines.forEach(line => {
-            const t = line.trim(); if (!t) return;
-            const m = t.match(re);
-            if (m) { lastEntry = { speakerName: m[1].trim(), text: m[3].trim() }; results.push(lastEntry); }
-            else if (lastEntry) { lastEntry.text += '\n' + t; }
-        });
+        return parseKakaoLines(lines);
 
     } else if (currentLogType === 'twitter') {
         const { regexTab: reTab, timeRe } = LOG_TYPES.twitter;
@@ -1276,7 +1315,8 @@ function handlePaste(event) {
     const missed  = new Set();
 
     if (parsed.length > 0) {
-        parsed.forEach(({ speakerName, text, locked, handle, time, stats }) => {
+        parsed.forEach(({ speakerName, text, locked, handle, time, stats, divider }) => {
+            if (divider) { addSystemMessageToDOM(divider); return; }
             const s = speakers.find(s => s.name === speakerName);
             if (s) { addMessageToDOM(s, text, { locked, handle, time, stats }); }
             else   { missed.add(speakerName); }
@@ -1498,6 +1538,63 @@ function loadBackupFile(file) {
     reader.readAsText(file, 'UTF-8');
 }
 
+// ── 카카오톡 내보내기 txt 불러오기 ─────────────────
+// 로그 속 이름으로 발화자를 자동 등록한 뒤 기존 메시지 뒤에 이어 붙인다.
+function loadKakaoTxtFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const lines  = e.target.result.replace(/^﻿/, '').split(/\r?\n/);
+        const parsed = parseKakaoLines(lines);
+        if (!parsed.some(p => p.speakerName)) {
+            showToast('대화를 찾을 수 없습니다. 카카오톡에서 내보낸 txt 파일인지 확인해주세요.');
+            return;
+        }
+
+        // 제목 줄 "OOO 님과 카카오톡 대화"의 OOO = 상대방
+        const titleLine = lines.map(l => l.trim()).find(Boolean) || '';
+        const partner   = titleLine.match(LOG_TYPES.kakao.titleRe)?.[1].trim() ?? null;
+        const names     = [...new Set(parsed.filter(p => p.speakerName).map(p => p.speakerName))];
+        const isKnown   = n => speakers.some(s => s.name === n);
+
+        // 나(발화자 0): 로그에 아직 없으면, 상대방이 아닌 미등록 이름이 하나뿐일 때 그 이름으로 지정
+        const me = speakers.find(s => s.id === 0);
+        if (me && !names.includes(me.name)) {
+            const candidates = names.filter(n => n !== partner && !isKnown(n));
+            if (candidates.length === 1) me.name = candidates[0];
+        }
+
+        // 나머지 미등록 이름: 메시지가 없는 기본 이름(상대방 A 등) 발화자를 먼저 재사용, 없으면 새로 추가
+        const added = [];
+        names.filter(n => !isKnown(n)).forEach(n => {
+            const reusable = speakers.find(s =>
+                s.id !== 0 && /^상대방 /.test(s.name) && !names.includes(s.name) &&
+                !messagesContainer.querySelector(`.message.speaker-${s.id}`));
+            if (reusable) reusable.name = n;
+            else          createSpeaker(n);
+            added.push(n);
+        });
+
+        updateDynamicStyles(); applyCssVariables();
+        updateSpeakerDropdown();
+
+        // 카카오톡 탭으로 전환 (다른 표시 형식이었다면 기존 메시지도 말풍선으로 다시 그림)
+        document.querySelector('.log-tab[data-type="kakao"]').click();
+
+        let count = 0;
+        parsed.forEach(({ speakerName, text, divider }) => {
+            if (divider) { addSystemMessageToDOM(divider); return; }
+            const s = speakers.find(s => s.name === speakerName);
+            if (s) { addMessageToDOM(s, text); count++; }
+        });
+
+        syncEmptyState();
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        showToast(`카카오톡 대화를 불러왔습니다. (메시지 ${count}개${added.length ? `, 발화자 추가: ${added.join(', ')}` : ''})`);
+    };
+    reader.readAsText(file, 'UTF-8');
+}
+
 // ── 이벤트 바인딩 ─────────────────────────────────
 document.getElementById('add-speaker-btn').addEventListener('click',  addSpeaker);
 document.getElementById('change-name-btn').addEventListener('click',  changeSpeakerName);
@@ -1508,6 +1605,8 @@ document.getElementById('clear-btn').addEventListener('click',        clearMessa
 document.getElementById('send-btn').addEventListener('click',         sendMessage);
 document.getElementById('load-backup-btn').addEventListener('click',  () => document.getElementById('load-backup-input').click());
 document.getElementById('load-backup-input').addEventListener('change', e => { loadBackupFile(e.target.files[0]); e.target.value = ''; });
+document.getElementById('load-kakao-btn').addEventListener('click',   () => document.getElementById('load-kakao-input').click());
+document.getElementById('load-kakao-input').addEventListener('change', e => { loadKakaoTxtFile(e.target.files[0]); e.target.value = ''; });
 document.getElementById('img-upload-btn').addEventListener('click',   () => document.getElementById('img-upload-input').click());
 document.getElementById('img-upload-input').addEventListener('change', e => {
     const file = e.target.files[0];
