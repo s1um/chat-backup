@@ -66,6 +66,7 @@ const messageInput      = document.getElementById('message-input');
 const dynamicStyleTag   = document.getElementById('dynamic-styles');
 const toastEl           = document.getElementById('toast');
 const pngLoading        = document.getElementById('png-loading');
+const loadingText       = document.getElementById('loading-text');
 const logHint           = document.getElementById('log-hint');
 
 // ── 토스트 ───────────────────────────────────────
@@ -1447,12 +1448,21 @@ function exportHtmlFile() {
     showToast('HTML 파일 저장 완료!');
 }
 
+// ── 로딩 오버레이 ─────────────────────────────────
+function showLoading(text) {
+    loadingText.textContent = text;
+    pngLoading.classList.add('show');
+}
+function hideLoading() {
+    pngLoading.classList.remove('show');
+}
+
 // ── PNG 저장 ──────────────────────────────────────
 function exportPng() {
     if (!messagesContainer.querySelector('.message')) {
         showToast('저장할 메시지가 없습니다.'); return;
     }
-    pngLoading.classList.add('show');
+    showLoading('이미지 생성 중...');
     setTimeout(() => {
         html2canvas(messagesContainer, {
             backgroundColor: '#ffffff',
@@ -1461,14 +1471,14 @@ function exportPng() {
             logging: false,
             removeContainer: true
         }).then(canvas => {
-            pngLoading.classList.remove('show');
+            hideLoading();
             const link = document.createElement('a');
             link.download = `DM_백업_${new Date().toISOString().slice(0, 10)}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
             showToast('PNG 저장 완료!');
         }).catch(err => {
-            pngLoading.classList.remove('show');
+            hideLoading();
             console.error(err);
             showToast('PNG 저장 실패 — 콘솔을 확인해주세요.');
         });
@@ -1542,11 +1552,17 @@ function loadBackupFile(file) {
 // 로그 속 이름으로 발화자를 자동 등록한 뒤 기존 메시지 뒤에 이어 붙인다.
 function loadKakaoTxtFile(file) {
     if (!file) return;
+    showLoading('카카오톡 대화 불러오는 중...');
     const reader = new FileReader();
+    reader.onerror = function() {
+        hideLoading();
+        showToast('파일을 읽지 못했습니다.');
+    };
     reader.onload = function(e) {
-        const lines  = e.target.result.replace(/^﻿/, '').split(/\r?\n/);
+        const lines  = e.target.result.replace(/^\uFEFF/, '').split(/\r?\n/);
         const parsed = parseKakaoLines(lines);
         if (!parsed.some(p => p.speakerName)) {
+            hideLoading();
             showToast('대화를 찾을 수 없습니다. 카카오톡에서 내보낸 txt 파일인지 확인해주세요.');
             return;
         }
@@ -1581,16 +1597,28 @@ function loadKakaoTxtFile(file) {
         // 카카오톡 탭으로 전환 (다른 표시 형식이었다면 기존 메시지도 말풍선으로 다시 그림)
         document.querySelector('.log-tab[data-type="kakao"]').click();
 
-        let count = 0;
-        parsed.forEach(({ speakerName, text, divider }) => {
-            if (divider) { addSystemMessageToDOM(divider); return; }
-            const s = speakers.find(s => s.name === speakerName);
-            if (s) { addMessageToDOM(s, text); count++; }
-        });
-
-        syncEmptyState();
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        showToast(`카카오톡 대화를 불러왔습니다. (메시지 ${count}개${added.length ? `, 발화자 추가: ${added.join(', ')}` : ''})`);
+        // 긴 대화도 화면이 멈추지 않도록 나눠서 추가하며 진행 상황 표시
+        const CHUNK = 200;
+        let count = 0, idx = 0;
+        function addChunk() {
+            const end = Math.min(idx + CHUNK, parsed.length);
+            for (; idx < end; idx++) {
+                const { speakerName, text, divider } = parsed[idx];
+                if (divider) { addSystemMessageToDOM(divider); continue; }
+                const s = speakers.find(s => s.name === speakerName);
+                if (s) { addMessageToDOM(s, text); count++; }
+            }
+            if (idx < parsed.length) {
+                loadingText.textContent = `카카오톡 대화 불러오는 중... (${idx} / ${parsed.length})`;
+                setTimeout(addChunk, 0);
+                return;
+            }
+            syncEmptyState();
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            hideLoading();
+            showToast(`카카오톡 대화를 불러왔습니다. (메시지 ${count}개${added.length ? `, 발화자 추가: ${added.join(', ')}` : ''})`);
+        }
+        setTimeout(addChunk, 0);
     };
     reader.readAsText(file, 'UTF-8');
 }
