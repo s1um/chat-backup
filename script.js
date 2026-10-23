@@ -1410,7 +1410,7 @@ function buildBackupHtml() {
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>DM 백업</title>
+    <title>[FIJELL] DM 백업</title>
     <style>
 ${fixedStaticCss}
 ${speakerCss}
@@ -1560,7 +1560,9 @@ function loadKakaoTxtFile(file) {
     };
     reader.onload = function(e) {
         const lines  = e.target.result.replace(/^\uFEFF/, '').split(/\r?\n/);
-        const parsed = parseKakaoLines(lines);
+        // \uB0A0\uC9DC \uAD6C\uBD84\uC120 \uD45C\uC2DC\uAC00 \uAEBC\uC838 \uC788\uC73C\uBA74 divider \uD56D\uBAA9\uC740 \uC81C\uC678
+        const showDividers = document.getElementById('kakao-divider-check').checked;
+        const parsed = parseKakaoLines(lines).filter(p => showDividers || !p.divider);
         if (!parsed.some(p => p.speakerName)) {
             hideLoading();
             showToast('대화를 찾을 수 없습니다. 카카오톡에서 내보낸 txt 파일인지 확인해주세요.');

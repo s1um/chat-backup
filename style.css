@@ -707,6 +707,17 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
     accent-color: var(--accent);
     cursor: pointer;
 }
+.check-option {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 7px;
+    font-size: 11.5px; color: var(--text-2);
+    cursor: pointer; user-select: none;
+}
+.check-option input[type="checkbox"] {
+    width: 13px; height: 13px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
 .welcome-btn {
     padding: 8px 22px !important;
     font-size: 13px !important; font-weight: 600 !important;
