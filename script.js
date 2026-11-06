@@ -10,7 +10,7 @@ const LOG_TYPES = {
     },
     twitter: {
         label: '트위터 DM',
-        hint: `<b>형식 A:</b> 이름 TAB 메시지 TAB 시간 (탭 구분)<br><b>형식 B:</b> [이름] → 메시지(여러 줄 가능) → 오전/오후 h:mm<br>타임스탬프가 발화자 구분 기준 — 타임스탬프마다 다음 발화자로 전환됩니다.<br>지금 선택한 발화자가 첫 번째로 파싱됩니다.`,
+        hint: `<b>형식 A:</b> 이름 TAB 메시지 TAB 시간 (탭 구분)<br><b>형식 B:</b> [이름] → 메시지(여러 줄 가능) → 오전/오후 h:mm<br>타임스탬프가 발화자 구분 기준 — 타임스탬프마다 다음 발화자로 전환됩니다.<br>지금 선택한 발화자가 첫 번째로 파싱됩니다.<br>트위터 아카이브의 <code>direct-messages.js</code>는 컨트롤 패널의 <b>트위터 DM 불러오기</b>로 바로 열 수 있습니다.`,
         regexTab:   /^(.+?)\t(.+?)(?:\t.+)?$/,
         timeRe:     /^(오전|오후)\s+\d{1,2}:\d{2}$/
     },
@@ -1561,7 +1561,7 @@ function loadKakaoTxtFile(file) {
     reader.onload = function(e) {
         const lines  = e.target.result.replace(/^\uFEFF/, '').split(/\r?\n/);
         // \uB0A0\uC9DC \uAD6C\uBD84\uC120 \uD45C\uC2DC\uAC00 \uAEBC\uC838 \uC788\uC73C\uBA74 divider \uD56D\uBAA9\uC740 \uC81C\uC678
-        const showDividers = document.getElementById('kakao-divider-check').checked;
+        const showDividers = document.getElementById('import-divider-check').checked;
         const parsed = parseKakaoLines(lines).filter(p => showDividers || !p.divider);
         if (!parsed.some(p => p.speakerName)) {
             hideLoading();
@@ -1599,28 +1599,227 @@ function loadKakaoTxtFile(file) {
         // 카카오톡 탭으로 전환 (다른 표시 형식이었다면 기존 메시지도 말풍선으로 다시 그림)
         document.querySelector('.log-tab[data-type="kakao"]').click();
 
-        // 긴 대화도 화면이 멈추지 않도록 나눠서 추가하며 진행 상황 표시
-        const CHUNK = 200;
-        let count = 0, idx = 0;
-        function addChunk() {
-            const end = Math.min(idx + CHUNK, parsed.length);
-            for (; idx < end; idx++) {
-                const { speakerName, text, divider } = parsed[idx];
-                if (divider) { addSystemMessageToDOM(divider); continue; }
-                const s = speakers.find(s => s.name === speakerName);
-                if (s) { addMessageToDOM(s, text); count++; }
-            }
-            if (idx < parsed.length) {
-                loadingText.textContent = `카카오톡 대화 불러오는 중... (${idx} / ${parsed.length})`;
-                setTimeout(addChunk, 0);
-                return;
-            }
-            syncEmptyState();
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            hideLoading();
-            showToast(`카카오톡 대화를 불러왔습니다. (메시지 ${count}개${added.length ? `, 발화자 추가: ${added.join(', ')}` : ''})`);
+        appendParsedEntries(parsed, '카카오톡', p => speakers.find(s => s.name === p.speakerName),
+            added.length ? `, 발화자 추가: ${added.join(', ')}` : '');
+    };
+    reader.readAsText(file, 'UTF-8');
+}
+
+// 긴 대화도 화면이 멈추지 않도록 나눠서 추가하며 진행 상황 표시
+function appendParsedEntries(parsed, label, findSpeaker, note) {
+    const CHUNK = 200;
+    let count = 0, idx = 0;
+    function addChunk() {
+        const end = Math.min(idx + CHUNK, parsed.length);
+        for (; idx < end; idx++) {
+            const entry = parsed[idx];
+            if (entry.divider) { addSystemMessageToDOM(entry.divider); continue; }
+            const s = findSpeaker(entry);
+            if (s) { addMessageToDOM(s, entry.text); count++; }
         }
-        setTimeout(addChunk, 0);
+        if (idx < parsed.length) {
+            loadingText.textContent = `${label} 대화 불러오는 중... (${idx} / ${parsed.length})`;
+            setTimeout(addChunk, 0);
+            return;
+        }
+        syncEmptyState();
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        hideLoading();
+        showToast(`${label} 대화를 불러왔습니다. (메시지 ${count}개${note})`);
+    }
+    setTimeout(addChunk, 0);
+}
+
+// ── 트위터 아카이브 direct-messages.js 불러오기 ─────
+// 첨부 미디어의 t.co 링크는 지우고 표시 문구로 대체, 일반 링크는 원래 주소로 복원
+function cleanDmText(msg) {
+    let text = msg.text;
+    let hasMedia = msg.mediaUrls.length > 0;
+    msg.urls.forEach(u => {
+        const isMedia = u.expanded.includes('/messages/media/');
+        if (isMedia) hasMedia = true;
+        text = text.split(u.url).join(isMedia ? '' : u.expanded);
+    });
+    text = text.replace(/&(lt|gt|amp);/g, (_, e) => ({ lt: '<', gt: '>', amp: '&' })[e]).trim();
+    if (!hasMedia) return text;
+    const mediaUrl = msg.mediaUrls[0] ?? '';
+    const label = mediaUrl.includes('/dm_gif/') ? '[GIF]' : mediaUrl.includes('/dm_video/') ? '[동영상]' : '[사진]';
+    return text ? `${label}\n${text}` : label;
+}
+
+// 파일은 코드로 실행하지 않고 앞의 대입문만 떼어 JSON으로 읽는다.
+// 긴 대화는 같은 conversationId로 쪼개져 저장되므로 합친 뒤 시간순으로 정렬한다.
+function parseTwitterDmFile(raw) {
+    const data = JSON.parse(raw.replace(/^\uFEFF/, '').replace(/^\s*window\.YTD\.direct_messages\.part\d+\s*=\s*/, ''));
+    const byId = new Map();
+    data.forEach(({ dmConversation: c }) => {
+        if (!byId.has(c.conversationId)) {
+            byId.set(c.conversationId, { id: c.conversationId, participants: [...new Set(c.conversationId.split('-'))], messages: [] });
+        }
+        const conv = byId.get(c.conversationId);
+        c.messages.forEach(({ messageCreate: m }) => {
+            if (m) conv.messages.push({ id: m.id, senderId: m.senderId, createdAt: m.createdAt, text: cleanDmText(m) });
+        });
+    });
+    const byTime = (a, b) => a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1
+                           : a.id.length - b.id.length || (a.id < b.id ? -1 : 1);
+    const convs = [...byId.values()].filter(c => c.messages.length);
+    convs.forEach(c => {
+        c.messages.sort(byTime);
+        c.searchText = (c.id + '\n' + c.messages.map(m => m.text).join('\n')).toLowerCase();
+    });
+    const lastTime = c => c.messages[c.messages.length - 1].createdAt;
+    return convs.sort((a, b) => lastTime(b).localeCompare(lastTime(a)));
+}
+
+// 파일에 내 ID가 따로 없어서 모든 대화에 공통으로 나오는 ID를 나로 본다. (대화가 하나뿐이면 판별 불가 → null)
+function detectDmSelfId(convs) {
+    const common = convs.reduce((ids, c) => ids.filter(id => c.participants.includes(id)), convs[0].participants);
+    return common.length === 1 ? common[0] : null;
+}
+
+function formatDmDate(iso) {
+    const d = new Date(iso);
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// 대화 → [{ senderId, text } | { divider }] (날짜는 createdAt의 UTC가 아닌 로컬 시간 기준)
+function buildDmEntries(conv, showDividers) {
+    const entries = [];
+    let lastDay = null;
+    conv.messages.forEach(m => {
+        const d = new Date(m.createdAt);
+        const day = `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${'일월화수목금토'[d.getDay()]}요일`;
+        if (showDividers && day !== lastDay) entries.push({ divider: day });
+        lastDay = day;
+        entries.push({ senderId: m.senderId, text: m.text });
+    });
+    return entries;
+}
+
+const dmPickerOverlay = document.getElementById('dm-picker-overlay');
+const dmPickerList    = document.getElementById('dm-picker-list');
+const dmPickerSearch  = document.getElementById('dm-picker-search');
+const dmPickerConfirm = document.getElementById('dm-picker-confirm-btn');
+const dmSelfRow       = document.getElementById('dm-self-row');
+const dmSelfSelect    = document.getElementById('dm-self-select');
+const dmNameRow       = document.getElementById('dm-name-row');
+const dmPartnerName   = document.getElementById('dm-partner-name');
+let dmPicker = null; // { convs, selfId, selected }
+
+function currentDmSelfId() { return dmPicker.selfId ?? dmSelfSelect.value; }
+
+function renderDmPickerList() {
+    const query = dmPickerSearch.value.trim().toLowerCase();
+    const selfId = currentDmSelfId();
+    const convs = dmPicker.convs.filter(c => c.searchText.includes(query));
+    dmPickerList.replaceChildren(...convs.map(conv => {
+        const partnerId = conv.participants.find(id => id !== selfId);
+        const first = conv.messages[0], last = conv.messages[conv.messages.length - 1];
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'dm-picker-item';
+        item.classList.toggle('selected', conv === dmPicker.selected);
+        [['title', partnerId ? `ID ${partnerId}` : '나와의 대화'],
+         ['meta', `메시지 ${conv.messages.length}개 · ${formatDmDate(first.createdAt)} ~ ${formatDmDate(last.createdAt)}`],
+         ['preview', last.text]].forEach(([part, text]) => {
+            const el = document.createElement('div');
+            el.className = `dm-picker-item-${part}`;
+            el.textContent = text;
+            item.appendChild(el);
+        });
+        item.addEventListener('click', () => { dmPicker.selected = conv; renderDmPickerList(); });
+        return item;
+    }));
+    if (!convs.length) {
+        const empty = document.createElement('div');
+        empty.className = 'dm-picker-empty';
+        empty.textContent = '일치하는 대화가 없습니다.';
+        dmPickerList.appendChild(empty);
+    }
+    const selected = dmPicker.selected;
+    dmNameRow.hidden = !!selected && selected.participants.length === 1;
+    dmPickerConfirm.disabled = !selected;
+    dmPickerConfirm.textContent = selected ? `메시지 ${selected.messages.length}개 불러오기` : '대화를 선택해주세요';
+}
+
+function openDmPicker(convs) {
+    const selfId = detectDmSelfId(convs);
+    dmPicker = { convs, selfId, selected: convs.length === 1 ? convs[0] : null };
+    document.getElementById('dm-picker-sub').textContent = `대화 ${convs.length}개 · 최근 대화순`;
+    dmSelfRow.hidden = selfId !== null;
+    dmSelfSelect.replaceChildren(...(selfId === null ? convs[0].participants : []).map(id => new Option(id, id)));
+    dmPickerSearch.value = '';
+    dmPartnerName.value = '';
+    renderDmPickerList();
+    dmPickerOverlay.classList.add('show');
+}
+
+function closeDmPicker() {
+    dmPicker = null;
+    dmPickerList.replaceChildren();
+    dmPickerOverlay.classList.remove('show');
+}
+
+// 이름이 같은 발화자 → 메시지 없는 기본 발화자(상대방 A 등) → 새 발화자 순으로 상대방을 정한다.
+function resolveDmPartner(name, partnerId) {
+    const known = name && speakers.find(s => s.id !== 0 && s.name === name);
+    if (known) return known;
+    const reusable = speakers.find(s =>
+        s.id !== 0 && /^상대방 /.test(s.name) &&
+        !messagesContainer.querySelector(`.message.speaker-${s.id}`));
+    if (reusable) {
+        if (name) reusable.name = name;
+        return reusable;
+    }
+    return createSpeaker(name || `상대방 ${partnerId.slice(-4)}`);
+}
+
+function importSelectedDmConversation() {
+    const conv = dmPicker.selected;
+    const selfId = currentDmSelfId();
+    const name = dmPartnerName.value.trim();
+    const me = speakers.find(s => s.id === 0);
+    const partnerId = conv.participants.find(id => id !== selfId);
+    if (partnerId && name === me.name) {
+        showToast('상대방 이름은 내 이름과 다르게 입력해주세요.');
+        return;
+    }
+    const partner = partnerId ? resolveDmPartner(name, partnerId) : null;
+
+    updateDynamicStyles(); applyCssVariables();
+    updateSpeakerDropdown();
+    document.querySelector('.log-tab[data-type="twitter"]').click();
+
+    const showDividers = document.getElementById('import-divider-check').checked;
+    closeDmPicker();
+    showLoading('트위터 DM 대화 불러오는 중...');
+    appendParsedEntries(buildDmEntries(conv, showDividers), '트위터 DM',
+        e => e.senderId === selfId ? me : partner,
+        partner ? `, 상대방: ${partner.name}` : '');
+}
+
+function loadTwitterDmFile(file) {
+    if (!file) return;
+    showLoading('트위터 DM 파일 읽는 중...');
+    const reader = new FileReader();
+    reader.onerror = function() {
+        hideLoading();
+        showToast('파일을 읽지 못했습니다.');
+    };
+    reader.onload = function(e) {
+        let convs = [];
+        try {
+            convs = parseTwitterDmFile(e.target.result);
+        } catch (err) {
+            console.error(err);
+        }
+        hideLoading();
+        if (!convs.length) {
+            showToast('대화를 찾을 수 없습니다. 트위터 아카이브의 direct-messages.js 파일인지 확인해주세요.');
+            return;
+        }
+        openDmPicker(convs);
     };
     reader.readAsText(file, 'UTF-8');
 }
@@ -1637,6 +1836,21 @@ document.getElementById('load-backup-btn').addEventListener('click',  () => docu
 document.getElementById('load-backup-input').addEventListener('change', e => { loadBackupFile(e.target.files[0]); e.target.value = ''; });
 document.getElementById('load-kakao-btn').addEventListener('click',   () => document.getElementById('load-kakao-input').click());
 document.getElementById('load-kakao-input').addEventListener('change', e => { loadKakaoTxtFile(e.target.files[0]); e.target.value = ''; });
+const dmGuideOverlay = document.getElementById('dm-guide-overlay');
+const closeDmGuide   = () => dmGuideOverlay.classList.remove('show');
+document.getElementById('load-twitter-dm-btn').addEventListener('click',   () => dmGuideOverlay.classList.add('show'));
+document.getElementById('dm-guide-file-btn').addEventListener('click', () => {
+    closeDmGuide();
+    document.getElementById('load-twitter-dm-input').click();
+});
+document.getElementById('dm-guide-close-btn').addEventListener('click', closeDmGuide);
+dmGuideOverlay.addEventListener('click', e => { if (e.target === dmGuideOverlay) closeDmGuide(); });
+document.getElementById('load-twitter-dm-input').addEventListener('change', e => { loadTwitterDmFile(e.target.files[0]); e.target.value = ''; });
+dmPickerSearch.addEventListener('input', renderDmPickerList);
+dmSelfSelect.addEventListener('change', renderDmPickerList);
+dmPickerConfirm.addEventListener('click', importSelectedDmConversation);
+document.getElementById('dm-picker-close-btn').addEventListener('click', closeDmPicker);
+dmPickerOverlay.addEventListener('click', e => { if (e.target === dmPickerOverlay) closeDmPicker(); });
 document.getElementById('img-upload-btn').addEventListener('click',   () => document.getElementById('img-upload-input').click());
 document.getElementById('img-upload-input').addEventListener('change', e => {
     const file = e.target.files[0];

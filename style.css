@@ -811,3 +811,46 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
     #message-input { font-size: 16px; /* iOS 줌 방지 */ }
     #send-btn, #img-upload-btn { width: 38px; height: 38px; }
 }
+
+/* ── 트위터 DM 파일 안내 ── */
+.dm-guide-modal { max-width: 440px; }
+.dm-guide-modal .dm-picker-title { margin-bottom: 14px; }
+.dm-guide-modal .welcome-desc { margin-bottom: 14px; }
+
+/* ── 트위터 DM 대화 선택 ── */
+.dm-picker-modal {
+    display: flex; flex-direction: column; gap: 10px;
+    max-width: 560px; height: 90vh;
+    overflow: hidden;
+}
+.dm-picker-title { font-size: 16px; font-weight: 700; color: var(--text-1); }
+.dm-picker-sub { font-size: 11.5px; color: var(--text-3); margin-top: -6px; }
+.dm-picker-list {
+    flex: 1; min-height: 0;
+    overflow-y: auto;
+    border: 1px solid var(--border-md);
+    border-radius: var(--r-md);
+}
+.dm-picker-empty { padding: 24px; text-align: center; font-size: 12px; color: var(--text-3); }
+.dm-picker-item {
+    display: block; width: 100%;
+    padding: 9px 12px;
+    border: none; border-bottom: 1px solid var(--border);
+    background: transparent;
+    font-family: var(--font); text-align: left;
+    cursor: pointer;
+}
+.dm-picker-item:last-child { border-bottom: none; }
+.dm-picker-item:hover { background: var(--bg-hover); }
+.dm-picker-item.selected { background: var(--accent-lite); }
+.dm-picker-item-title { font-size: 12.5px; font-weight: 600; color: var(--text-1); }
+.dm-picker-item-meta { font-size: 10.5px; color: var(--text-3); margin-top: 1px; }
+.dm-picker-item-preview {
+    font-size: 11.5px; color: var(--text-2); margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dm-picker-row { display: flex; align-items: center; gap: 10px; }
+.dm-picker-row[hidden] { display: none; }
+.dm-picker-row label { flex-shrink: 0; width: 72px; font-size: 12px; color: var(--text-2); }
+.dm-picker-row .field { flex: 1; min-width: 0; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }

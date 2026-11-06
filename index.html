@@ -162,13 +162,19 @@
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 카카오톡 txt 불러오기
             </button>
+            <input type="file" id="load-twitter-dm-input" accept=".js" style="display:none">
+            <button id="load-twitter-dm-btn" class="btn btn-accent btn-full" style="margin-top:6px">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                트위터 DM 불러오기
+            </button>
             <label class="check-option">
-                <input type="checkbox" id="kakao-divider-check">
+                <input type="checkbox" id="import-divider-check">
                 날짜 구분선 표시
             </label>
             <div style="margin-top:7px;font-size:10.5px;color:var(--text-3);line-height:1.6">
                 저장된 백업 HTML 파일을 열어 채팅 내용을 미리볼 수 있습니다.<br>
-                카카오톡에서 내보낸 대화 txt 파일을 열면 발화자가 자동 등록되고 기존 메시지 뒤에 이어 붙습니다.
+                카카오톡에서 내보낸 대화 txt 파일을 열면 발화자가 자동 등록되고 기존 메시지 뒤에 이어 붙습니다.<br>
+                트위터 아카이브의 direct-messages.js 파일을 열면 대화 하나를 골라 불러올 수 있습니다.
             </div>
         </div>
 
@@ -327,6 +333,47 @@
             </label>
             <button id="welcome-start-btn" class="btn btn-accent welcome-btn">시작하기</button>
         </div>
+    </div>
+</div>
+
+<!-- 트위터 DM 파일 안내 -->
+<div id="dm-guide-overlay" class="welcome-overlay">
+    <div class="welcome-modal dm-guide-modal">
+        <button id="dm-guide-close-btn" class="welcome-close" title="닫기">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+        <h2 class="dm-picker-title">트위터 DM 불러오기</h2>
+        <div class="welcome-desc">
+            트위터의 <b>설정 → 계정 → 내 데이터 기록 파일 다운로드</b>를 통해 파일을 다운로드할 수 있습니다.<br>
+            다운로드한 파일의 압축을 풀고 <code>data/direct-messages.js</code> 파일을 불러오면 됩니다.
+        </div>
+        <button id="dm-guide-file-btn" class="btn btn-accent btn-full">파일 선택</button>
+    </div>
+</div>
+
+<!-- 트위터 DM 대화 선택 -->
+<div id="dm-picker-overlay" class="welcome-overlay">
+    <div class="welcome-modal dm-picker-modal">
+        <button id="dm-picker-close-btn" class="welcome-close" title="닫기">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+        <h2 class="dm-picker-title">불러올 대화 선택</h2>
+        <p id="dm-picker-sub" class="dm-picker-sub"></p>
+        <input type="text" id="dm-picker-search" class="field" placeholder="대화 내용 또는 ID 검색">
+        <div id="dm-picker-list" class="dm-picker-list"></div>
+        <div id="dm-self-row" class="dm-picker-row">
+            <label for="dm-self-select">내 계정 ID</label>
+            <select id="dm-self-select" class="field"></select>
+        </div>
+        <div id="dm-name-row" class="dm-picker-row">
+            <label for="dm-partner-name">상대방 이름</label>
+            <input type="text" id="dm-partner-name" class="field" placeholder="비워두면 기본 이름 사용">
+        </div>
+        <button id="dm-picker-confirm-btn" class="btn btn-accent btn-full" disabled>대화를 선택해주세요</button>
     </div>
 </div>
 
